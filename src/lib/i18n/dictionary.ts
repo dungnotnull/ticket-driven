@@ -245,11 +245,13 @@ export const DICT = {
 
   /* attachments */
   "att.upload": { en: "Upload files", ja: "ファイルをアップロード" },
-  "att.uploadHint": { en: "PNG, JPG, GIF, WebP or PDF up to 10 MB", ja: "PNG・JPG・GIF・WebP・PDF、10MBまで" },
+  "att.uploadHint": { en: "PNG, JPG, GIF or WebP images only, up to 10 MB", ja: "PNG・JPG・GIF・WebP の画像のみ、10MBまで" },
   "att.uploading": { en: "Uploading…", ja: "アップロード中…" },
   "att.remove": { en: "Remove attachment", ja: "添付ファイルを削除" },
-  "att.button": { en: "Attach images or PDFs (max 10 MB)", ja: "画像またはPDFを添付（最大10MB）" },
-  "att.invalidType": { en: "{name}: only PNG, JPEG, GIF, WebP or PDF files are allowed.", ja: "{name}: アップロードできるのはPNG・JPEG・GIF・WebP・PDFのみです。" },
+  "att.button": { en: "Attach images (max 5, 10 MB each)", ja: "画像を添付（最大5枚、各10MB）" },
+  "att.limitCount": { en: "Image limit reached - max {max} files.", ja: "上限に達しました - 最大 {max} 枚まで。" },
+  "att.preview": { en: "preview", ja: "プレビュー" },
+  "att.invalidType": { en: "{name}: only PNG, JPEG, GIF and WebP images are allowed.", ja: "{name}: アップロードできるのはPNG・JPEG・GIF・WebPの画像のみです。" },
   "att.tooLarge": { en: "{name}: files must be 10 MB or smaller.", ja: "{name}: ファイルは10MB以下にしてください。" },
   "att.fail": { en: "{name} failed to upload.", ja: "{name} をアップロードできませんでした。" },
   "att.removeNamed": { en: "Remove {name}", ja: "{name} を削除" },
@@ -406,6 +408,7 @@ export const DICT = {
   /* rich-text feedback editor (Tiptap) */
   "rt.image": { en: "Image", ja: "画像" },
   "rt.imageOnly": { en: "Only image files are supported here.", ja: "ここでは画像ファイルのみサポートしています。" },
+  "rt.imageLimit": { en: "Image limit reached - max {max} images per message.", ja: "上限に達しました - 1メッセージ最大 {max} 枚まで。" },
 
   /* project progress strip (status-based completion) */
   "prog.title": { en: "Overview progress", ja: "全体の進捗" },

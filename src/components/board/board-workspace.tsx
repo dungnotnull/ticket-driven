@@ -64,6 +64,7 @@ import { useLang } from "@/lib/i18n";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { cn, timeAgo } from "@/lib/utils";
+import { stripRichHtml } from "@/lib/sanitize";
 import {
   COLUMN_KEYS,
   COLUMN_LABELS,
@@ -459,7 +460,7 @@ export function BoardWorkspace({ project, tickets: initialTickets, myRole, myUse
             {persisting && <LoaderCircle size={13} className="animate-spin text-muted" />}
           </div>
           <p className="hidden truncate text-[13px] text-muted sm:block">
-            {project.description || t("home.noDescription")}
+            {stripRichHtml(project.description ?? "") || t("home.noDescription")}
           </p>
         </div>
 

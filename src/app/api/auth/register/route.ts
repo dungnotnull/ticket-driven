@@ -7,11 +7,14 @@ import {
   toSessionUser,
 } from "@/lib/auth";
 import { ApiError, readJson, route } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /** First registered user becomes the global admin (bootstrap convention). */
 export async function POST(request: Request) {
   const response = await route(async () => {
     const input = registerSchema.parse(await readJson(request));
+    // Mass-registration brake: 5 attempts / 15 min per IP+email pair.
+    enforceRateLimit(request, "register", input.email.toLowerCase().trim());
     await connectDB();
 
     const email = input.email.toLowerCase().trim();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Edit3, ListChecks, LoaderCircle, MessageSquare, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text";
 import { cn } from "@/lib/utils";
 import { updateProjectAction } from "@/app/actions/projects";
 import { useLang } from "@/lib/i18n";
 import { PROJECT_GRADIENTS, gradientClassFor } from "@/lib/gradients";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import type { ProjectDefaultQuestionDTO, ProjectDTO } from "@/lib/types";
+import { apiFetch } from "@/lib/fetcher";
 
 /** One editable quick-add template row (mirrors the ticket question shape). */
 type TemplateRow = ProjectDefaultQuestionDTO;
@@ -74,6 +75,23 @@ export function ProjectEditDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Media keys uploaded this session (description editor) - cleaned on
+   *  close: the backend keeps any key referenced by saved content. */
+  const sessionMediaRef = useRef<string[]>([]);
+
+  function cleanupSessionMedia() {
+    const candidates = [...new Set(sessionMediaRef.current)].filter(Boolean);
+    if (candidates.length === 0) return;
+    void apiFetch("/api/content/graphics/cleanup", {
+      method: "POST",
+      json: { projectId: project.id, keys: candidates },
+    }).catch(() => undefined);
+  }
+
+  function handleDialogChange(open: boolean) {
+    if (!open) cleanupSessionMedia();
+    onOpenChange(open);
+  }
 
   function patchRow(index: number, patch: Partial<TemplateRow>) {
     setTemplateRows((prev) =>
@@ -143,7 +161,7 @@ export function ProjectEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       {/* size lg / max-w-2xl: the template editor (prompts + option rows)
           needs width - narrow md clipped labels and broke the rows. */}
       <DialogContent size="lg" data-testid="project-edit-dialog">
@@ -168,15 +186,19 @@ export function ProjectEditDialog({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-project-desc">{t("home.dialogDesc")}</Label>
-              <Textarea
-                id="edit-project-desc"
+              <Label>{t("home.dialogDesc")}</Label>
+              {/* Rich project description (Tiptap): formatting + IMAGE upload
+                  (images only, max 5) - the description card/board header
+                  surfaces render a plain-text projection via stripRichHtml. */
+              }
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(html) => setDescription(html)}
                 placeholder={t("home.descPh")}
-                maxLength={600}
-                className="min-h-16"
-                data-testid="edit-project-desc"
+                testid="edit-project-desc"
+                minHeight="96px"
+                projectId={project.id}
+                onMediaKeyUploaded={(key) => sessionMediaRef.current.push(key)}
               />
             </div>
 

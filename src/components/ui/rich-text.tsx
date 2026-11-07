@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/fetcher";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { MAX_EDITOR_IMAGES } from "@/lib/types";
 
 /** Auth-checked download URL for server-stored objects (same shape as the
  * legacy local driver's serving path; safe inside <img> src attributes). */
@@ -42,15 +43,21 @@ interface RichTextEditorProps {
   projectId?: string;
   minHeight?: string;
   className?: string;
+  /** Max images the body may hold (default shared MAX_EDITOR_IMAGES = 5). */
+  maxImages?: number;
+  /** Fires for every object key this editor session uploads (orphan cleanup
+   * runs on dialog cancel - the server only deletes UNREFERENCED keys). */
+  onMediaKeyUploaded?: (key: string) => void;
 }
 
 /**
  * Tiptap rich-text editor for the feedback/reply surfaces inside tickets
- * (comments + client review notes). Formatting: bold/italic/strike/underline,
- * bullet & ordered lists, links, undo/redo. Images: toolbar button or paste -
- * IMAGES ONLY - uploaded straight to cloud storage (presigned R2/S3 PUT).
- * Without credentials the image upload fails with the calm storage-safety
- * toast and the rest of the page stays fully functional.
+ * (comments + client review notes) and the ticket/project descriptions.
+ * Formatting: bold/italic/strike/underline, bullet & ordered lists, links,
+ * undo/redo. Images: toolbar multi-pick or paste - IMAGES ONLY - uploaded
+ * straight to cloud storage (presigned R2/B2 PUT), hard-capped per body
+ * (default 5). Without credentials the image upload fails with the calm
+ * storage-safety toast and the rest of the page stays fully functional.
  */
 export function RichTextEditor({
   value,
@@ -61,11 +68,17 @@ export function RichTextEditor({
   projectId,
   minHeight = "2.75rem",
   className,
+  maxImages = MAX_EDITOR_IMAGES,
+  onMediaKeyUploaded,
 }: RichTextEditorProps) {
   const { t } = useLang();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
+
+  function imageCount(target: Editor): number {
+    return target.getHTML().match(/<img\b/gi)?.length ?? 0;
+  }
 
   const uploadAndInsert = useCallback(
     async (target: Editor, file: File) => {
@@ -74,6 +87,10 @@ export function RichTextEditor({
         return;
       }
       if (!projectId) return;
+      if (imageCount(target) >= maxImages) {
+        toast.error(t("rt.imageLimit", { max: maxImages }));
+        return;
+      }
       setUploading(true);
       try {
         const presign = await apiFetch<{
@@ -95,11 +112,17 @@ export function RichTextEditor({
           body: file,
         });
         if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+        if (imageCount(target) >= maxImages) {
+          // A concurrent paste may have filled the body while upload ran.
+          toast.error(t("rt.imageLimit", { max: maxImages }));
+          return;
+        }
         target
           .chain()
           .focus()
           .setImage({ src: objectDownloadUrl(presign.key), alt: file.name })
           .run();
+        onMediaKeyUploaded?.(presign.key);
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         toast.error(
@@ -111,7 +134,7 @@ export function RichTextEditor({
         setUploading(false);
       }
     },
-    [projectId, t],
+    [projectId, t, maxImages, onMediaKeyUploaded],
   );
 
   const editor = useEditor({
@@ -161,6 +184,28 @@ export function RichTextEditor({
   useEffect(() => {
     if (editor && disabled !== undefined) editor.setEditable(!disabled);
   }, [disabled, editor]);
+
+  async function pickThenUpload() {
+    if (!editor) return;
+    fileRef.current?.click();
+  }
+
+  async function handlePicked(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!editor || files.length === 0) return;
+    const remaining = maxImages - imageCount(editor);
+    if (remaining <= 0) {
+      toast.error(t("rt.imageLimit", { max: maxImages }));
+      return;
+    }
+    if (files.length > remaining) {
+      toast.error(t("rt.imageLimit", { max: maxImages }));
+    }
+    for (const file of files.slice(0, Math.max(remaining, 0))) {
+      await uploadAndInsert(editor, file);
+    }
+  }
 
   const btn = (
     key: string,
@@ -219,7 +264,7 @@ export function RichTextEditor({
             disabled={uploading || !editor}
             onMouseDown={(e) => {
               e.preventDefault();
-              fileRef.current?.click();
+              void pickThenUpload();
             }}
             aria-label={t("rt.image")}
             title={t("rt.image")}
@@ -235,12 +280,11 @@ export function RichTextEditor({
       <input
         ref={fileRef}
         type="file"
+        multiple
         accept="image/*"
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && editor) void uploadAndInsert(editor, file);
-          e.target.value = "";
+          void handlePicked(e);
         }}
       />
     </div>

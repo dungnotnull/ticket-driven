@@ -3,6 +3,7 @@ import { requireSessionUser } from "@/lib/auth";
 import { ApiError, readJson, route } from "@/lib/api";
 import { createTicketSchema } from "@/lib/validation";
 import { createTicket, listTickets } from "@/lib/services/tickets";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const COLUMN_KEYS = ["todo", "in_progress", "in_review", "done"] as const;
 
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const response = await route(async () => {
     const user = await requireSessionUser();
+    enforceRateLimit(request, "tickets", user.id);
     const input = createTicketSchema.parse(await readJson(request));
     const ticket = await createTicket(user, input);
     return Response.json({ ticket }, { status: 201 });

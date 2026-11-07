@@ -28,11 +28,12 @@ questions and track progress - nothing else.
 | Data | Mongoose 9 on MongoDB Atlas (cloud-only; Docker is NOT used) |
 | Auth | `jose` HS256 JWT in httpOnly sameSite=lax cookie + `bcryptjs`, edge `proxy.ts` signature gate |
 | DnD | @dnd-kit (pointer + keyboard, hydration-gated board) |
-| Rich text | Tiptap-based editors (comments + ticket description, images-only upload) |
+| Rich text | Tiptap-based editors (comments + ticket/project descriptions, images-only upload, max 5 images per body) |
 | Analytics | Recharts (server-computed from real data) |
 | Knowledge brain | d3-force graph + explainable health score |
 | AI | Gemini (cheap lite models supported via `GEMINI_MODEL`, e.g. `gemini-3.1-flash-lite`) + live double rotation: model chain (`GEMINI_MODEL_FALLBACKS`) then second-key chain (`GEMINI_API_KEY_2`) since free-tier quota is per model AND per key - read-only suggestions, safe-to-fail |
-| Storage | S3-compatible presigned PUTs, cloud-only: Cloudflare R2 OR Backblaze B2 (free tier 10 GB + 1 GB/day, no credit card); no credentials = designed 503 toast |
+| Storage | S3-compatible presigned PUTs, cloud-only: Cloudflare R2 OR Backblaze B2 (free tier 10 GB + 1 GB/day, no credit card); no credentials = designed 503 toast; IMAGES-ONLY (`png|jpeg|gif|webp` - pdf/video 400), max 5 attachments per ticket, media-cleanup lifecycle incl. `POST /api/content/graphics/cleanup` |
+| Input hardening | Double sanitization (persistence `stripDangerousHtml` + display DOMPurify), per-identity rate limits on critical APIs (login/register/tickets/comments/review/ai-review/presign/cleanup), busy-disabled submits |
 | i18n | EN/JA dictionary (`src/lib/i18n`), chrome text only, localStorage + `dymticket_lang` cookie |
 | Caching | In-process TTL read-through (`src/lib/cache.ts`, 2-5 min, per-user keys) + Mongoose middleware invalidation |
 | Validation | Zod on every server boundary (routes, actions, service sanitize) |

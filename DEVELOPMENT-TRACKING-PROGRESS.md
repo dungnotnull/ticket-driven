@@ -39,6 +39,9 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 | 2026-11-07, round 20 | DONE | Free-tier model rotation: `GEMINI_MODEL_FALLBACKS` chain in ai-review (per-model quota; rotates on 429/404/5xx/network/empty, never on 400/401/403); rotation proven with a bogus primary (404 -> 3.5 served, rotate warning in server log); e2e 23/23 after reseed | src/lib/services/ai-review.ts, .env.example |
 | 2026-11-07, round 21 | DONE | Dual-key rotation for AI review: `GEMINI_API_KEY_2` layer on top of the model chain (rotate models per key, then switch keys; only calm 503 after everything); key 2 tested = authenticates but 403 free-tier-disabled -> NOT activated (user's own condition); mechanism proven E2E via bogus key 1 -> real key 2 served | src/lib/services/ai-review.ts, .env.example |
 | 2026-11-07, round 22 | DONE | Storage media cleanup: ticket delete / project cascade delete / description-edit diff / attachment replacement all clean up their media keys (attachments + description/comment/review images) per-driver (S3 delete or legacy local unlink); best-effort, cross-reference safe; probe_storage_cleanup 21/21 with real disk evidence + e2e 23/23 | storage-cleanup.ts, services/tickets.ts, services/projects.ts |
+| 2026-11-07, round 22 addendum | DONE | AI rotation hardening: per-key model chain + `GEMINI_API_KEY_2` key chain (double rotation, calm 503 only after everything); new working fallback key wired + rotation proven E2E | src/lib/services/ai-review.ts, .env.local (gitignored) |
+| 2026-11-07, round 23 | DONE | Security + media hardening (REQ-046): images-only uploads (pdf/video 400), max-5 caps (attachments + editor bodies), persistence sanitizer on every rich input, rate limits on 8 critical endpoints, orphan-cleanup endpoint + dialog close hooks, attachment thumbnails + lightbox, project-description rich text (edit dialog), comment Send busy-disable; probe_security_media 16/16 + storage 21/21 + e2e 23/23 | sanitize.ts, rate-limit.ts, content/graphics/cleanup route, validation.ts, rich-text.tsx, attachment-upload.tsx, image-preview.tsx, ticket-modal.tsx, project-edit-dialog.tsx |
+
 ## LIMITATION (current, acknowledged)
 
 - **Search & filtering are client-side.** Home search and the board
@@ -48,8 +51,11 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
   navigation/refresh (router.refresh / re-fetch), not live.
 - **No email flows.** Email verification was intentionally skipped (MVP
   choice); password reset, invites-by-email and notifications do not exist.
-- **Uploads require R2 configuration.** Cloud-only storage means a fresh
-  deployment without `R2_*` creds has attachments disabled by design.
+- **Uploads require B2 (or R2) configuration.** Cloud-only storage means a fresh
+  deployment without storage creds has attachments disabled by design; NEW in
+  round 23: uploads are IMAGES-ONLY (pdf/video rejected at the API gate) and
+  capped (5 attachments / 5 editor images). Rate limits are in-memory
+  (single-instance scope, like the TTL cache).
 - **AI review needs a Gemini key.** Without `GEMINI_API_KEY` the button shows
   the maintenance toast (by design, zero breakage).
 - **Reseed wipes user edits.** `npm run seed -- --force` resets demo data

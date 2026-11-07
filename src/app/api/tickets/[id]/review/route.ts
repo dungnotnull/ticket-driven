@@ -2,6 +2,7 @@ import { requireSessionUser } from "@/lib/auth";
 import { readJson, route } from "@/lib/api";
 import { reviewSchema } from "@/lib/validation";
 import { reviewTicket } from "@/lib/services/tickets";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -15,6 +16,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   const response = await route(async () => {
     const user = await requireSessionUser();
     const { id } = await params;
+    enforceRateLimit(request, "review", user.id);
     const input = reviewSchema.parse(await readJson(request));
     const ticket = await reviewTicket(user, id, input);
     return Response.json({ ticket });

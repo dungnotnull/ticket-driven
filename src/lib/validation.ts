@@ -4,11 +4,13 @@ import {
   COLUMN_KEYS,
   GLOBAL_ROLES,
   MAX_ATTACHMENT_BYTES,
+  MAX_TOTAL_ATTACHMENTS,
   PRIORITIES,
   PROJECT_ROLES,
   REVIEW_STATUSES,
 } from "./models";
 import { QUESTION_TYPES } from "./types";
+import { stripDangerousHtml } from "./sanitize";
 
 const objectIdRegex = /^[a-f\d]{24}$/i;
 export const objectIdSchema = z
@@ -48,12 +50,21 @@ export const loginSchema = z.object({
 
 export const createProjectSchema = z.object({
   name: z.string().trim().min(2, "Project name is required.").max(120),
-  description: z.string().trim().max(600).optional().default(""),
+  description: z.string().trim().max(4000).optional().default("").transform(stripDangerousHtml),
 });
 
 export const updateProjectSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
-  description: z.string().trim().max(600).optional(),
+  /** Rich HTML (Tiptap) since round 23 - generous cap + persistence sanitizer.
+   * NOTE: transform must pass `undefined` through untouched - a bare
+   * .optional().transform() would coerce every ABSENT field to "" and wipe
+   * stored rich content (and its images) on every unrelated patch. */
+  description: z
+    .string()
+    .trim()
+    .max(4000)
+    .optional()
+    .transform((value) => (value === undefined ? undefined : stripDangerousHtml(value))),
   /** Curated gallery URL or null/"" to clear; allowlist enforced in service. */
   backgroundUrl: z.string().max(500).nullish(),
   /** Card header gradient preset; allowlist enforced in service. */
@@ -158,25 +169,31 @@ export const createTicketSchema = z.object({
     .trim()
     .min(3, "Title must be at least 3 characters.")
     .max(140),
-  description: z.string().trim().max(20_000).optional().default(""),
+  description: z.string().trim().max(20_000).optional().default("").transform(stripDangerousHtml),
   status: columnSchema.optional().default("todo"),
   assigneeId: nullableObjectId,
   priority: prioritySchema.optional().default("medium"),
   dueDate: isoDate.nullable().optional(),
-  attachments: z.array(attachmentInputSchema).max(10).optional().default([]),
+  attachments: z.array(attachmentInputSchema).max(MAX_TOTAL_ATTACHMENTS).optional().default([]),
   /** Verification questions can be authored together with a new ticket. */
   questions: z.array(createQuestionSchema).max(20).optional().default([]),
 });
 
 export const updateTicketSchema = z.object({
   title: z.string().trim().min(3).max(140).optional(),
-  description: z.string().trim().max(20_000).optional(),
+  /** Same undefined-preservation rule as updateProjectSchema.description. */
+  description: z
+    .string()
+    .trim()
+    .max(20_000)
+    .optional()
+    .transform((value) => (value === undefined ? undefined : stripDangerousHtml(value))),
   status: columnSchema.optional(),
   assigneeId: nullableObjectId,
   priority: prioritySchema.optional(),
   dueDate: isoDate.nullable().optional(),
   /** Full replacement of the attachment list (validated per entry). */
-  attachments: z.array(attachmentInputSchema).max(10).optional(),
+  attachments: z.array(attachmentInputSchema).max(MAX_TOTAL_ATTACHMENTS).optional(),
 });
 
 export const moveSchema = z.object({
@@ -197,12 +214,12 @@ export const reviewSchema = z.object({
   /** Rich-note HTML (Tiptap); trim() keeps whitespace-only docs "empty".
    * HTML formatting inflates length -> generous cap, sanitizer strips tags
    * beyond the tiptap allowlist before persistence-adjacent rendering. */
-  note: z.string().trim().max(8000).optional().default(""),
+  note: z.string().trim().max(8000).optional().default("").transform(stripDangerousHtml),
 });
 
 export const commentSchema = z.object({
   /** Rich-comment HTML (Tiptap) - min(1) blocks empty docs; cap for HTML. */
-  body: z.string().trim().min(1, "Comment cannot be empty.").max(8000),
+  body: z.string().trim().min(1, "Comment cannot be empty.").max(8000).transform(stripDangerousHtml),
 });
 
 /** Admin/team may edit a question at any time - answers get sanitized.

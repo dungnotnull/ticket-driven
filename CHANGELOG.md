@@ -6,6 +6,19 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 23 (hardening day: images-only, caps, sanitizer, rate limits, dialog media cleanup)
+
+- **Images-only uploads across the board**: `ALLOWED_ATTACHMENT_TYPES` dropped pdf - `presignSchema` now rejects pdf/video/anything but `png|jpeg|gif|webp` (400) for attachments AND editor/paste images; e2e-safe (fixture.png path unused pdf probe removed in favour of API-probe).
+- **Hard caps**: max 5 attachments per ticket (`MAX_TOTAL_ATTACHMENTS`, zod `.max()` on create+update) and max 5 images per rich-text body (`MAX_EDITOR_IMAGES`, editor toolbar counter + toast `rt.imageLimit`).
+- **Persistence-side sanitizer** (`src/lib/sanitize.ts`): `stripDangerousHtml` wired into createTicket/updateTicket descriptions, create/update project descriptions, review notes + comment bodies (zod transforms); display-side DOMPurify allowlist unchanged. **Zod gotcha discovered**: a bare `.optional().transform(fn)` turns every ABSENT field into `""` - the transform must pass `undefined` through (`(v) => v === undefined ? undefined : stripDangerousHtml(v)`) or an attachments-only PATCH wipes the description AND deletes its images (caught by the storage-cleanup probe: imgD died on the attachments-replace step).
+- **New orphan-cleanup endpoint** `POST /api/content/graphics/cleanup` {projectId, keys[<=50]}: RBAC project read; keys must match `tickets/<projectId>/...`; deletes only keys referenced by NO ticket (attachments `$in`, description + activity.note `$regex`); rate 15/min. Ticket + project edit dialogs now collect session-uploaded keys (editor images + pending attachments) and fire the endpoint on dialog close - the server decides, clients never diff references.
+- **Rich-text editor upgraded** (`rich-text.tsx`): multi-file toolbar picker + paste loop with remaining-image budget; `onMediaKeyUploaded(key)` callback.
+- **Attachment rows get thumbnails + lightbox** (`attachment-upload.tsx` + new `ui/image-preview.tsx`): blob preview while uploading, auth-checked `/api/files/<key>` when done, click-to-zoom dialog (`image-preview`), slot-cap toast, `att.preview` hint.
+- **Rate limiting** (`src/lib/rate-limit.ts`, in-memory fixed window, per-instance): login 10/5min (+email), register 5/15min (+email), tickets 30/min, comments 20/min, review 20/min, ai-review 5/min, presign 30/min, media cleanup 15/min - all returning the calm 429 literal.
+- **Busy disable everywhere**: comment Send (was missing) now disables on POST; review/save paths already gated - verified.
+- **Project description → rich text**: edit dialog swaps Textarea for Tiptap (testid `edit-project-desc` KEPT as the contenteditable host; create dialog intentionally keeps a plain textarea - no projectId, no presign target yet); board header + home cards project plain text via `stripRichHtml`; API cap 600 → 4000.
+- **Probes**: new `.qa/probe_security_media.py` 16/16 (sanitizer round-trip incl. script/onerror/javascript:, pdf+video 400, cleanup keeps referenced/imgD-safe, login hammer → 429 with a throwaway identity so it never poisons e2e accounts, 0 console errors) + `.qa/repro_replacing.py` (the zod regression). storage-cleanup 21/21, security 16/16, e2e 23/23 after the fix; reseeded.
+
 ## 2026-11-07 - round 19 (storage choice: B2 + live AI)
 
 ### Added

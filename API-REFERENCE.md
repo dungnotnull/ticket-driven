@@ -43,25 +43,33 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | PATCH `/api/tickets/[id]` | `write` | `updateTicketSchema` {title?, priority?, assigneeId?, dueDate?, description?} | `{ ticket }` | Activity field-diffs recorded; dropped description images / removed attachments get **best-effort storage cleanup** (keys still visible elsewhere are kept) |
 | DELETE `/api/tickets/[id]` | `write` | - | `{ ok: true }` | **Best-effort storage cleanup**: attachments + description/comment/review-note images deleted (S3 object via driver, legacy `.data/uploads` file otherwise) |
 | POST `/api/tickets/[id]/move` | `write` | `moveSchema` {updates: [{id, status, order}]} | `{ ok: true }` | Client reindexes affected columns after DnD |
-| POST `/api/tickets/[id]/comments` | `read` (member) | `commentSchema` {body(html-safe string)} | `{ ticket }` | Rich text; timeline note |
+| POST `/api/tickets/[id]/comments` | `read` (member) | `commentSchema` {body(html-safe string)} | `{ ticket }` | Rich text; timeline note; persistence-sanitized (`stripDangerousHtml`) |
+| POST `/api/tickets/[id]/review` | `review` (client-only) | `reviewSchema` {status, note} | `{ ticket }` | changes_requested REQUIRES note; auto-moves; persistence-sanitized |
 | POST `/api/tickets/[id]/questions` | `write` | `createQuestionSchema` {prompt, type choice/text, options[], allowMultiple, required, textOptionIndexes[]} | `{ ticket }` | choice needs >= 2 option labels |
 | PUT `/api/tickets/[id]/questions/[questionId]` | `write` | `updateQuestionSchema` (all-optional patch) | `{ ticket }` | Option edits SANITIZE existing answers |
 | DELETE `/api/tickets/[id]/questions/[questionId]` | `write` | - | `{ ticket }` | |
 | POST `/api/tickets/[id]/questions/[questionId]/answer` | `read` (member) | `answerQuestionSchema` {choiceIndexes?, optionTexts?, text?} | `{ ticket }` | One answer per member (upsert by userId) |
-| POST `/api/tickets/[id]/review` | `review` (client-only) | `reviewSchema` {status: approved/changes_requested/under_review, note} | `{ ticket }` | changes_requested REQUIRES note; auto-moves ticket |
 | POST `/api/tickets/[id]/ai-review` | `write` | - | `{ suggestions }` | Gemini double-rotation (per-key model chain + `GEMINI_API_KEY_2` key chain; free-tier quota is per model AND per key); ANY final failure = 503 maintenance (safe) |
-| POST `/api/upload/presign` | `write` | `presignSchema` {projectId, fileName, contentType} | upload ticket `(201)` | Cloud-only S3-compatible: Cloudflare R2 via R2_* OR Backblaze B2 via B2_* (B2 wins when set); no creds = 503 `STORAGE_UNCONFIGURED` |
+| POST `/api/upload/presign` | `write` | `presignSchema` {projectId, fileName, contentType} | upload ticket `(201)` | **IMAGES ONLY** - `image/png|jpeg|gif|webp` else 400; Cloud-only S3-compatible: Cloudflare R2 via R2_* OR Backblaze B2 via B2_* (B2 wins when set); no creds = 503 `STORAGE_UNCONFIGURED` |
 | PUT `/api/upload/local` | signed | HMAC-signed URL only | - | Legacy local upload path (kept for old uploads; new uploads are cloud-only) |
 | GET `/api/files/[...key]` | `read` | - | streamed file | Validates ticket->project membership per request; legacy `.data/uploads` remain downloadable |
+| POST `/api/content/graphics/cleanup` | `read` (member) | {projectId, keys[<=50]} | `{ removed, considered }` | Draft-media garbage collector: deletes ONLY in-project keys (`tickets/<projectId>/...`) that NO ticket references (attachments / description / activity notes); referenced keys always survive; rate-limited 15/min |
 | GET `/api/users` | admin | - | `{ users }` | Admin console list |
 | POST `/api/users` | admin | `createUserByAdminSchema` {name, email, password, role} | `{ user }` | 409 duplicate email |
+
+| POST `/api/auth/login` | - | `loginSchema` {email, password} | `{ user }` + cookie | Rate limit 10/5min per IP+email → 429 |
+| POST `/api/tickets` | `write` | `createTicketSchema` | `{ ticket }(201)` | Rate limit 30/min per user → 429 |
+| POST `/api/tickets/[id]/comments` | member | - | - | Rate limit 20/min per user → 429 |
+| POST `/api/tickets/[id]/review` | client | - | - | Rate limit 20/min per user → 429 |
+| POST `/api/tickets/[id]/ai-review` | write | - | - | Rate limit 5/min per user → 429 |
+| POST `/api/upload/presign` | write | - | - | Rate limit 30/min per user → 429 |
 
 ## Server Actions (`src/app/actions`)
 
 | Action | Level | Input | Result |
 |---|---|---|---|
-| `createProjectAction` | session (any signed-in) | name, description | project created, creator = project admin |
-| `updateProjectAction` | `write` | name?, description?, backgroundUrl?, gradientKey?, defaultQuestions? | meta saved |
+| `createProjectAction` | session (any signed-in) | name, description (rich HTML, sanitized) | project created, creator = project admin |
+| `updateProjectAction` | `write` | name?, description? (rich HTML, sanitized), backgroundUrl?, gradientKey?, defaultQuestions? | meta saved |
 | `deleteProjectAction` | `manage` | projectId | project + tickets removed |
 | `addMemberAction` / `updateMemberAction` / `removeMemberAction` | `manage` | member primitives | members managed |
 | `createUserAction` | global admin | name, email, password, role | account created (client-user flow) |

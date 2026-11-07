@@ -7,6 +7,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { ApiError, readJson, route } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // A bcrypt hash of an unrelated password keeps the timing profile even
 // when the account does not exist (mitigates user enumeration).
@@ -15,6 +16,8 @@ const DUMMY_HASH = "$2b$10$C6UzMDM.H6dfI/f/IKcEe.e7G8H4Z1RlYv9w8OZ2yN7Zm9K3mW7Xu
 export async function POST(request: Request) {
   const response = await route(async () => {
     const input = loginSchema.parse(await readJson(request));
+    // Brute-force brake: 10 attempts / 5 min per IP+email pair.
+    enforceRateLimit(request, "login", input.email.toLowerCase().trim());
     await connectDB();
 
     const email = input.email.toLowerCase().trim();

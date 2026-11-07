@@ -1,6 +1,7 @@
 import { requireSessionUser } from "@/lib/auth";
 import { readJson, route } from "@/lib/api";
 import { reviewTicketContent } from "@/lib/services/ai-review";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -14,6 +15,9 @@ export async function POST(request: Request, { params }: RouteParams) {
   const response = await route(async () => {
     const user = await requireSessionUser();
     const { id } = await params;
+    // Gemini costs real tokens - 5 calls/min per user (key rotation absorbs
+    // per-model limits, this guards the raw call budget).
+    enforceRateLimit(request, "aiReview", user.id);
     await readJson(request); // {}
     const review = await reviewTicketContent(user, id);
     return Response.json({ review });

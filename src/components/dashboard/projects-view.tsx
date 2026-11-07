@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProjectAction } from "@/app/actions/projects";
 import { useLang } from "@/lib/i18n";
+import { stripRichHtml } from "@/lib/sanitize";
 import { gradientClassFor } from "@/lib/gradients";
 import type { GlobalRole, ProjectDTO } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
@@ -279,7 +280,7 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
                     <Badge variant="outline">{project.members.length}</Badge>
                   </div>
                   <p className="line-clamp-2 mt-1 min-h-10 text-[13px] text-muted">
-                    {project.description || t("home.noDescription")}
+                    {stripRichHtml(project.description ?? "") || t("home.noDescription")}
                   </p>
                   <div className="mt-5 flex items-center justify-between">
                     <div className="flex -space-x-1.5">

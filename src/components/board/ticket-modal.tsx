@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LoaderCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -98,8 +98,13 @@ export function TicketModal({
   const [comment, setComment] = useState("");
   const [commentEmpty, setCommentEmpty] = useState(true);
   const [commentNonce, setCommentNonce] = useState(0);
+  const [commentBusy, setCommentBusy] = useState(false);
   /** Verification questions authored together with a NEW ticket (create mode). */
   const [draftQuestions, setDraftQuestions] = useState<TicketQuestionDTO[]>([]);
+  /** Media keys uploaded inside THIS dialog session (editor images + pending
+   * attachments). On close WITHOUT a successful save, the backend keeps any
+   * key still referenced elsewhere and deletes only true orphans. */
+  const sessionMediaRef = useRef<string[]>([]);
 
   const readyAttachments = drafts
     .filter((d) => d.status === "done" && d.key)
@@ -112,6 +117,21 @@ export function TicketModal({
     }));
 
   const memberName = (id: string | null) => (id ? memberById.get(id)?.name ?? null : null);
+
+  /** Fire-and-forget garbage collection for never-saved uploads. */
+  function cleanupSessionMedia(keys: string[]) {
+    const candidates = [...new Set(keys)].filter(Boolean);
+    if (candidates.length === 0) return;
+    void apiFetch("/api/content/graphics/cleanup", {
+      method: "POST",
+      json: { projectId: project.id, keys: candidates },
+    }).catch(() => undefined);
+  }
+
+  function handleClose() {
+    cleanupSessionMedia(sessionMediaRef.current);
+    onClose();
+  }
 
   /* ---------------------------- actions ---------------------------- */
 
@@ -187,7 +207,8 @@ export function TicketModal({
   async function postComment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = comment.trim();
-    if (!body || !isEdit) return;
+    if (!body || !isEdit || commentBusy) return;
+    setCommentBusy(true);
     try {
       const res = await apiFetch<{ ticket: TicketDTO }>(`/api/tickets/${ticket!.id}/comments`, {
         method: "POST",
@@ -200,13 +221,15 @@ export function TicketModal({
       setCommentEmpty(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("ticket.commentFail"));
+    } finally {
+      setCommentBusy(false);
     }
   }
 
   /* ----------------------------- render ----------------------------- */
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
         size="2xl"
         className="scrollbar-stable top-[4vh] max-h-[92vh] translate-y-0 md:overflow-hidden"
@@ -275,6 +298,7 @@ export function TicketModal({
                   disabled={!canWrite || busy}
                   projectId={project.id}
                   minHeight="150px"
+                  onMediaKeyUploaded={(key) => sessionMediaRef.current.push(key)}
                 />
               </div>
 
@@ -359,6 +383,7 @@ export function TicketModal({
                     projectId={project.id}
                     drafts={drafts}
                     disabled={busy}
+                    onUploadedKey={(key) => sessionMediaRef.current.push(key)}
                     onChange={(updater) => {
                       setDrafts((prev) => updater(prev));
                       setAttachmentsDirty(true);
@@ -442,21 +467,26 @@ export function TicketModal({
                     {/* Rich comment/reply editor (Tiptap): formatting + image
                         paste/upload (images only). contenteditable keeps the
                         `comment-input` testid so QA keeps working. */}
-                    <RichTextEditor
-                      key={commentNonce}
-                      value={comment}
-                      onChange={(html, isEmpty) => {
-                        setComment(html);
-                        setCommentEmpty(isEmpty);
-                      }}
-                      placeholder={t("ticket.commentPh")}
-                      testid="comment-input"
-                      projectId={project.id}
-                      minHeight="150px"
-                    />
+                <RichTextEditor
+                  key={commentNonce}
+                  value={comment}
+                  onChange={(html, isEmpty) => {
+                    setComment(html);
+                    setCommentEmpty(isEmpty);
+                  }}
+                  placeholder={t("ticket.commentPh")}
+                  testid="comment-input"
+                  projectId={project.id}
+                  minHeight="150px"
+                  onMediaKeyUploaded={(key) => sessionMediaRef.current.push(key)}
+                />
                     <div className="flex justify-end">
-                      <Button type="submit" aria-label={t("ticket.send")} disabled={commentEmpty}>
-                        {t("ticket.send")}
+                      <Button type="submit" aria-label={t("ticket.send")} disabled={commentEmpty || commentBusy}>
+                        {commentBusy ? (
+                          <LoaderCircle size={13} className="animate-spin" />
+                        ) : (
+                          t("ticket.send")
+                        )}
                       </Button>
                     </div>
                   </form>

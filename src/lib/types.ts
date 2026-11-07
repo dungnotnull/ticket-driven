@@ -48,8 +48,12 @@ export const ALLOWED_ATTACHMENT_TYPES = [
   "image/jpeg",
   "image/gif",
   "image/webp",
-  "application/pdf",
 ] as const;
+
+/** Hard cap on attachments per ticket (UI + zod share this). */
+export const MAX_TOTAL_ATTACHMENTS = 5;
+/** Hard cap on images inside one rich-text body (comment/review/description). */
+export const MAX_EDITOR_IMAGES = 5;
 
 export const ACTIVITY_TYPES = [
   "created",
