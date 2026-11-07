@@ -24,6 +24,27 @@ calendar dates. Status of every line: DONE + probe-verified.
 ### Verified
 - tsc 0 / eslint 0; e2e 23/23 (A8 storage-safety unchanged); AI live probe
   in `.qa/probe_ai_live.py`.
+
+## 2026-11-07 - round 20 (free-tier model rotation)
+
+### Added
+- LIVE MODEL CHAIN for Gemini AI review: `GEMINI_MODEL` primary +
+  `GEMINI_MODEL_FALLBACKS` (comma-separated). Free-tier API quota is
+  **per model**, so when the primary hits its rate limit (429) or is
+  otherwise unavailable (404/5xx/network/empty output) the next candidate
+  serves the request instead of degrading to the maintenance toast;
+  400/401/403 (key/request problems) stop immediately - rotation cannot
+  fix those and the calm 503 stays the only failure mode.
+
+### Verified
+- Rotation proven END-TO-END: `.env.local` temporarily shipped a bogus
+  primary (`gemini-9.9-bogus-expect-404`) + fallback
+  `gemini-3.5-flash-lite` -> server log printed the rotate warning (404)
+  and the UI still got a real score + suggestions (200). Restored proper
+  config (`gemini-3.1-flash-lite` primary, `gemini-3.5-flash-lite`
+  fallback) and re-verified; e2e 23/23 after a reseed (one suite run hit
+  leftover probe-state data, not code - reseed cleared it).
+
 ## 2026-11-07 - round 18 (richer gradient palette + first GitHub push)
 
 ### Added

@@ -75,10 +75,31 @@ function extractJson(raw: string): unknown {
 /* ------------------------------ service ---------------------------- */
 
 /**
+ * Live model chain: `GEMINI_MODEL` first, then `GEMINI_MODEL_FALLBACKS`
+ * (comma-separated). Free-tier quota is counted PER MODEL, so when the
+ * primary lite model hits its rate limit (429) the next model in the chain
+ * serves the request instead of degrading the feature.
+ */
+function modelChain(): string[] {
+  const chain: string[] = [];
+  const primary = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+  chain.push(primary);
+  for (const raw of (process.env.GEMINI_MODEL_FALLBACKS ?? "").split(",")) {
+    const name = raw.trim();
+    if (name && !chain.includes(name)) chain.push(name);
+  }
+  return chain;
+}
+
+/**
  * One-shot Gemini call that reviews the ticket description plus its client
  * questions/options and returns read-only suggestions. Failures NEVER
- * propagate as unexpected errors - everything becomes an ApiError(503) with
- * the maintenance message so the UI toasts it calmly.
+ * propagate as unexpected errors - everything eventually becomes an
+ * ApiError(503) with the maintenance message so the UI toasts it calmly.
+ * The call ROTATES through the model chain on retryable failures (429 rate
+ * limit, 404 model unavailable, 5xx, network, empty/malformed output);
+ * 400/401/403 are key/request problems that rotation cannot fix - those
+ * stop immediately with the maintenance 503.
  */
 export async function reviewTicketContent(
   user: SessionUser,
@@ -91,7 +112,6 @@ export async function reviewTicketContent(
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim().length < 20) throw aiUnavailable();
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
 
   const lines: string[] = [
     `TITLE: ${ticket.title}`,
@@ -118,32 +138,53 @@ export async function reviewTicketContent(
   if ((ticket.questions ?? []).length === 0) lines.push("QUESTIONS: (none attached)");
   void questions;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(lines.join("\n")) }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 1200, responseMimeType: "application/json" },
-      }),
-      signal: AbortSignal.timeout(15_000),
-      cache: "no-store",
-    },
-  ).catch(() => {
-    throw aiUnavailable();
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: buildPrompt(lines.join("\n")) }] }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 1200, responseMimeType: "application/json" },
   });
 
-  if (!response.ok) throw aiUnavailable();
+  let text = "";
+  for (const model of modelChain()) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body,
+        signal: AbortSignal.timeout(15_000),
+        cache: "no-store",
+      },
+    ).catch(() => null);
 
-  const data = (await response.json().catch(() => null)) as
-    | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-    | null;
-  const text =
-    data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
+    if (!response || !response.ok) {
+      const status = response?.status ?? 0;
+      // 400/401/403: bad request or key/auth problem - identical for every
+      // model, rotating cannot help -> stop with the calm 503.
+      if (status === 400 || status === 401 || status === 403) throw aiUnavailable();
+      if (status) {
+        console.warn(`[ai-review] model ${model} unavailable (status ${status}) - rotating to next candidate`);
+      } else {
+        console.warn(`[ai-review] model ${model} network error - rotating to next candidate`);
+      }
+      continue;
+    }
+
+    const data = (await response.json().catch(() => null)) as
+      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      | null;
+    const candidate =
+      data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
+    if (!candidate) {
+      console.warn(`[ai-review] model ${model} returned an empty candidate - rotating`);
+      continue;
+    }
+    text = candidate;
+    break;
+  }
+
   if (!text) throw aiUnavailable();
 
   const parsed = responseSchema.safeParse(extractJson(text));

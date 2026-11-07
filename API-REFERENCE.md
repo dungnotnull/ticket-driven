@@ -49,7 +49,7 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | DELETE `/api/tickets/[id]/questions/[questionId]` | `write` | - | `{ ticket }` | |
 | POST `/api/tickets/[id]/questions/[questionId]/answer` | `read` (member) | `answerQuestionSchema` {choiceIndexes?, optionTexts?, text?} | `{ ticket }` | One answer per member (upsert by userId) |
 | POST `/api/tickets/[id]/review` | `review` (client-only) | `reviewSchema` {status: approved/changes_requested/under_review, note} | `{ ticket }` | changes_requested REQUIRES note; auto-moves ticket |
-| POST `/api/tickets/[id]/ai-review` | `write` | - | `{ suggestions }` | Gemini (model = `GEMINI_MODEL`, cheap lite models supported); ANY failure = 503 maintenance (safe) |
+| POST `/api/tickets/[id]/ai-review` | `write` | - | `{ suggestions }` | Gemini model chain (`GEMINI_MODEL` + `GEMINI_MODEL_FALLBACKS`; per-model free-tier quota lets a rate-limited primary rotate); ANY final failure = 503 maintenance (safe) |
 | POST `/api/upload/presign` | `write` | `presignSchema` {projectId, fileName, contentType} | upload ticket `(201)` | Cloud-only S3-compatible: Cloudflare R2 via R2_* OR Backblaze B2 via B2_* (B2 wins when set); no creds = 503 `STORAGE_UNCONFIGURED` |
 | PUT `/api/upload/local` | signed | HMAC-signed URL only | - | Legacy local upload path (kept for old uploads; new uploads are cloud-only) |
 | GET `/api/files/[...key]` | `read` | - | streamed file | Validates ticket->project membership per request; legacy `.data/uploads` remain downloadable |

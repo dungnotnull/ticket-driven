@@ -45,6 +45,7 @@ the dev server must be running on `http://localhost:3000` first).
 | `probe_responsive.py` (17) | 390px + 768px horizontal-overflow sweep on all pages, every modal keeps 12px side gutters, `mobile-nav` visible < 640px / hidden >= 640px, confirm-dialog gutter |
 | `probe_round15.py` (14) | header shadow assertions (REAL rgb layer + no border), home search flow (debounce/empty-state), gradient picker save -> `grad-proj-*` + `data-gradient`, board search/unassigned/priority filters + reset |
 | `probe_gradients2.py` (11) | gradient palette v2 (11 presets): swatch count, pick -> save -> dashboard render + computed color, dialog persistence, 390px wrap without overflow, toggle back to automatic |
+| `probe_ai_live.py` | LIVE Gemini review with a real key: admin opens ticket, clicks AI review, asserts real score/suggestions panel (not the maintenance toast), 0 console errors; also used to prove the fallback chain (bogus primary -> 404 -> fallback model served the request; server log shows the rotate warning) |
 | `probe_cache.py` | TTL cache reads (knowledge 1159->739 ms, analytics 1533->836 ms), instant invalidation after writes, 0 unexpected console errors |
 | `probe_modal_overflow.py` | real wheel: outer modal scroll dead, aside scrolls internally |
 | `probe_scrolllock_clean.py` | dialog open/close: zero body/scrollbar layout shift, `data-scroll-locked` toggles |

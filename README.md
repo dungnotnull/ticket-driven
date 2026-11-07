@@ -24,7 +24,7 @@ Stack: **Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwin
    - `MONGODB_URI` - MongoDB connection string (Atlas M0 works: `mongodb+srv://user:pass@cluster/kanban`)
    - `AUTH_SECRET` - random 32+ byte hex string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
    - **Cloud storage (uploads are cloud-only)**: EITHER `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (+ optional `R2_PUBLIC_BASE`) - Cloudflare R2 - OR the Backblaze **B2 free-tier-friendly trio** `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET` (+ optional `B2_REGION` default `us-west-004`, `B2_PUBLIC_BASE`). Both are S3-compatible presigned-PUT providers with the same auth-checked `/api/files/[...key]` streaming - the first complete set wins; without credentials the ticket form reports "uploads are disabled" (legacy files already in `.data/uploads` stay downloadable)
-   - *(optional)* `GEMINI_API_KEY` + `GEMINI_MODEL` - enables AI content review; cheap lite models are supported (e.g. `gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`); without a key the button degrades to a calm "maintenance" toast, nothing breaks
+   - *(optional)* `GEMINI_API_KEY` + `GEMINI_MODEL` - enables AI content review; cheap lite models are supported (e.g. `gemini-3.1-flash-lite`, `gemini-3.5-flash-lite`); `GEMINI_MODEL_FALLBACKS` (comma-separated) adds a **live model chain** - free-tier quota is per model, so a rate-limited (429) primary rotates to the next candidate instead of failing; without a key the button degrades to a calm "maintenance" toast, nothing breaks
 3. **Seed demo data**:
    ```bash
    npm run seed

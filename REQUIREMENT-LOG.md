@@ -75,6 +75,7 @@ stable IDs, one row per requirement, no prose drift.
 | REQ-040 | Add 5 more card-header gradient presets for richer choice (round 18) | DONE | gradients.ts + globals.css `rose/emerald/lagoon/mist/midnight` + dict EN/JA; PROBE probe_gradients2.py 11/11, e2e 23/23 |
 | REQ-041 | Support Backblaze B2 as cloud storage provider (free tier, no credit card) | DONE | generic S3-compatible driver layer (R2 or B2, first complete set wins); .env.example how-to; B2 real-creds upload still to verify by user | NOTES row 44 |
 | REQ-042 | Use the provided Gemini key + cheap lite models (gemini-3.1-flash-lite / gemini-3.5-flash-lite) | DONE | key + GEMINI_MODEL in .env.local (gitignored); both models VALIDATED live via models list + generateContent; UI live probe PASS (score + suggestions, 0 console errors) | PROBE probe_ai_live.py |
+| REQ-043 | Free-tier model rotation: rate-limited primary rotates to fallback model | DONE | `GEMINI_MODEL_FALLBACKS` chain in ai-review service (per-model free quota; rotates on 429/404/5xx/network/empty, never on 400/401/403); proven E2E: bogus primary -> 404 -> 3.5 served 200 with panel, then restored 3.1 + fallback 3.5 | src/lib/services/ai-review.ts |
 
 ## Explicitly declined / out of scope (user decisions)
 
