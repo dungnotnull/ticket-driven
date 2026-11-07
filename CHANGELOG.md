@@ -25,6 +25,29 @@ calendar dates. Status of every line: DONE + probe-verified.
 - tsc 0 / eslint 0; e2e 23/23 (A8 storage-safety unchanged); AI live probe
   in `.qa/probe_ai_live.py`.
 
+## 2026-11-07 - round 21 (dual-key rotation + key 2 verdict)
+
+### Added
+- SECOND API-KEY layer for Gemini review: `GEMINI_API_KEY_2`. Rotation
+  order = per-key model chain first, then the next key with its full
+  model chain; only when EVERY key/model combination is exhausted does
+  the calm 503 maintenance toast appear (no page or flow ever breaks).
+- Key rejection handling: 401 always switches keys, and 400 with
+  `API_KEY_INVALID` is recognized as a key-level failure (Google reports
+  bad keys as 400) instead of a request error - no wasted retries.
+
+### Verified
+- Key 2 (user-provided) TESTED: authenticates + lists 50 models, but its
+  Google project has the FREE TIER DISABLED - every generateContent call
+  403s with "set up billing". Per the user's own condition ("if this key
+  works"), it is NOT enabled in `.env.local` (commented placeholder with
+  the exact 403 reason); the ROTATION MECHANISM is still proven E2E by
+  shipping a bogus key 1 (`AQ.Bogus...`, expect 400) + the real key as
+  key 2 -> server logged `key 1 rejected at key level - switching to the
+  next API key` and the UI still rendered a real review (45/100 + 5
+  suggestions, 0 console errors). Normal path re-verified after restore;
+  e2e 23/23; tsc 0 / eslint 0.
+
 ## 2026-11-07 - round 20 (free-tier model rotation)
 
 ### Added

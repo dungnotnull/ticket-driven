@@ -76,6 +76,7 @@ stable IDs, one row per requirement, no prose drift.
 | REQ-041 | Support Backblaze B2 as cloud storage provider (free tier, no credit card) | DONE | generic S3-compatible driver layer (R2 or B2, first complete set wins); .env.example how-to; B2 real-creds upload still to verify by user | NOTES row 44 |
 | REQ-042 | Use the provided Gemini key + cheap lite models (gemini-3.1-flash-lite / gemini-3.5-flash-lite) | DONE | key + GEMINI_MODEL in .env.local (gitignored); both models VALIDATED live via models list + generateContent; UI live probe PASS (score + suggestions, 0 console errors) | PROBE probe_ai_live.py |
 | REQ-043 | Free-tier model rotation: rate-limited primary rotates to fallback model | DONE | `GEMINI_MODEL_FALLBACKS` chain in ai-review service (per-model free quota; rotates on 429/404/5xx/network/empty, never on 400/401/403); proven E2E: bogus primary -> 404 -> 3.5 served 200 with panel, then restored 3.1 + fallback 3.5 | src/lib/services/ai-review.ts |
+| REQ-044 | Second Gemini key as fallback: key 1 rate-limited -> key 2 runs; key 2 fails too -> calm 503, nothing else breaks | DONE | key+model double rotation (`GEMINI_API_KEY_2`; 401/400-API_KEY_INVALID switch keys, 429/404/403/5xx rotate models); mechanism proven E2E with bogus key 1 -> real key 2 served; key 2 VERDICT: authenticates but 403 "free tier not available" on its project -> NOT enabled (commented placeholder) per user's own "if this key works" condition | src/lib/services/ai-review.ts |
 
 ## Explicitly declined / out of scope (user decisions)
 

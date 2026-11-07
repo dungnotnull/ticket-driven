@@ -91,15 +91,82 @@ function modelChain(): string[] {
   return chain;
 }
 
+/** API-key chain: `GEMINI_API_KEY` (key 1) then optional `GEMINI_API_KEY_2`. */
+function apiKeyChain(): string[] {
+  const keys: string[] = [];
+  for (const raw of [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2]) {
+    const key = raw?.trim();
+    if (key && key.length >= 20 && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+/** Result of one Gemini call attempt against a specific key + model. */
+interface ModelCallResult {
+  kind: "ok" | "rotate-model" | "rotate-key" | "fatal";
+  text?: string;
+}
+
+async function callModelOnce(
+  model: string,
+  apiKey: string,
+  body: string,
+): Promise<ModelCallResult> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body,
+      signal: AbortSignal.timeout(15_000),
+      cache: "no-store",
+    },
+  ).catch(() => null);
+
+  if (!response) return { kind: "rotate-model" }; // network error -> next model
+  if (response.ok) {
+    const data = (await response.json().catch(() => null)) as
+      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      | null;
+    const text =
+      data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
+    return text ? { kind: "ok", text } : { kind: "rotate-model" }; // empty candidate -> next model
+  }
+
+  const status = response.status;
+  // 429 quota (per key + model), 404 unknown model, 403 model/permission
+  // restricted, 5xx upstream - the SAME key may still serve with another
+  // model, so keep rotating models first; the key chain handles leftovers.
+  if (status === 429 || status === 404 || status === 403 || status >= 500) {
+    return { kind: "rotate-model" };
+  }
+  if (status === 401) return { kind: "rotate-key" }; // key-level auth failure
+  if (status === 400) {
+    // Distinguish a bad KEY from a bad REQUEST: Google returns 400 with
+    // "API key not valid"/API_KEY_INVALID for rejected keys - those rotate
+    // to the next key; genuine payload errors cannot be fixed by rotating.
+    const err = (await response.json().catch(() => null)) as
+      | { error?: { status?: string; message?: string } }
+      | null;
+    const detail = `${err?.error?.status ?? ""} ${err?.error?.message ?? ""}`;
+    return /API_KEY_INVALID|api key/i.test(detail)
+      ? { kind: "rotate-key" }
+      : { kind: "fatal" };
+  }
+  return { kind: "fatal" };
+}
+
 /**
  * One-shot Gemini call that reviews the ticket description plus its client
- * questions/options and returns read-only suggestions. Failures NEVER
- * propagate as unexpected errors - everything eventually becomes an
- * ApiError(503) with the maintenance message so the UI toasts it calmly.
- * The call ROTATES through the model chain on retryable failures (429 rate
- * limit, 404 model unavailable, 5xx, network, empty/malformed output);
- * 400/401/403 are key/request problems that rotation cannot fix - those
- * stop immediately with the maintenance 503.
+ * questions/options and returns read-only suggestions. The call ROTATES
+ * through the model chain per key, then through the API-key chain
+ * (key 1 -> key 2) - free-tier quota is per model AND per key. Failures
+ * NEVER propagate as unexpected errors: if every key/model combination
+ * is exhausted the caller receives ONLY the calm ApiError(503) so the UI
+ * toasts the maintenance message - no page or flow is ever broken.
  */
 export async function reviewTicketContent(
   user: SessionUser,
@@ -110,8 +177,8 @@ export async function reviewTicketContent(
   // AI review is an internal quality tool - admin/team (write) only.
   await getProjectAccess(ticket.projectId.toString(), "write", user);
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim().length < 20) throw aiUnavailable();
+  const keys = apiKeyChain();
+  if (keys.length === 0) throw aiUnavailable();
 
   const lines: string[] = [
     `TITLE: ${ticket.title}`,
@@ -143,46 +210,27 @@ export async function reviewTicketContent(
     generationConfig: { temperature: 0.4, maxOutputTokens: 1200, responseMimeType: "application/json" },
   });
 
+  const models = modelChain();
   let text = "";
-  for (const model of modelChain()) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body,
-        signal: AbortSignal.timeout(15_000),
-        cache: "no-store",
-      },
-    ).catch(() => null);
-
-    if (!response || !response.ok) {
-      const status = response?.status ?? 0;
-      // 400/401/403: bad request or key/auth problem - identical for every
-      // model, rotating cannot help -> stop with the calm 503.
-      if (status === 400 || status === 401 || status === 403) throw aiUnavailable();
-      if (status) {
-        console.warn(`[ai-review] model ${model} unavailable (status ${status}) - rotating to next candidate`);
-      } else {
-        console.warn(`[ai-review] model ${model} network error - rotating to next candidate`);
+  keyLoop: for (let k = 0; k < keys.length; k++) {
+    const key = keys[k];
+    for (const model of models) {
+      const result = await callModelOnce(model, key, body);
+      if (result.kind === "ok") {
+        text = result.text ?? "";
+        break keyLoop;
       }
-      continue;
+      if (result.kind === "rotate-model") {
+        console.warn(`[ai-review] key ${k + 1} model ${model} unavailable - rotating to next candidate model`);
+        continue;
+      }
+      if (result.kind === "rotate-key") {
+        console.warn(`[ai-review] key ${k + 1} rejected at key level - switching to the next API key`);
+        break;
+      }
+      console.warn(`[ai-review] key ${k + 1} model ${model} request failed terminally`);
+      throw aiUnavailable();
     }
-
-    const data = (await response.json().catch(() => null)) as
-      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-      | null;
-    const candidate =
-      data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
-    if (!candidate) {
-      console.warn(`[ai-review] model ${model} returned an empty candidate - rotating`);
-      continue;
-    }
-    text = candidate;
-    break;
   }
 
   if (!text) throw aiUnavailable();

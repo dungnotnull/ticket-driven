@@ -37,6 +37,7 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 
 | 2026-11-07, round 19 | DONE | Backblaze B2 added as second S3-compatible storage provider (shared client builder; file route streams via it) + Gemini key wired with cheap lite models (gemini-3.1-flash-lite / -3.5-flash-lite) and verified LIVE end-to-end (probe_ai_live: score + suggestions, 0 console errors) | storage.ts, api/files route, .env.example, probe_ai_live.py |
 | 2026-11-07, round 20 | DONE | Free-tier model rotation: `GEMINI_MODEL_FALLBACKS` chain in ai-review (per-model quota; rotates on 429/404/5xx/network/empty, never on 400/401/403); rotation proven with a bogus primary (404 -> 3.5 served, rotate warning in server log); e2e 23/23 after reseed | src/lib/services/ai-review.ts, .env.example |
+| 2026-11-07, round 21 | DONE | Dual-key rotation for AI review: `GEMINI_API_KEY_2` layer on top of the model chain (rotate models per key, then switch keys; only calm 503 after everything); key 2 tested = authenticates but 403 free-tier-disabled -> NOT activated (user's own condition); mechanism proven E2E via bogus key 1 -> real key 2 served | src/lib/services/ai-review.ts, .env.example |
 ## LIMITATION (current, acknowledged)
 
 - **Search & filtering are client-side.** Home search and the board
