@@ -1,0 +1,340 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* DymTicket design tokens - clean white base, modern linear accents.  */
+/* Light is the default; dark is a full-contrast override.             */
+/* ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: light;
+
+  --background: #fbfbfd;
+  --surface: #ffffff;
+  --surface-2: #f5f6f8;
+  --border: #e7e9ee;
+  --border-strong: #d5d8e0;
+  --foreground: #14161b;
+  --muted-foreground: #616b78;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --status-todo: #64748b;
+  --status-progress: #2563eb;
+  --status-review: #d97706;
+  --status-done: #16a34a;
+
+  /* DymTicket brand: white + deep navy/indigo (user-specified gradient) */
+  --grad-primary: linear-gradient(135deg, #312e81 0%, #4338ca 58%, #1e3a5f 100%);
+  --grad-primary-hover: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 100%);
+  --grad-soft: linear-gradient(135deg, #eef2ff 0%, #e4e9fb 55%, #e2ecf5 100%);
+  --grad-banner: linear-gradient(
+    135deg,
+    rgb(30, 27, 75) 0%,
+    rgb(49, 46, 129) 30%,
+    rgb(67, 56, 202) 60%,
+    rgb(30, 58, 95) 100%
+  );
+
+  /* Soft elevation */
+  --elev-card: 0 1px 2px rgb(20 24 40 / 0.05), 0 10px 30px -18px rgb(20 24 40 / 0.16);
+  --elev-dialog: 0 24px 70px -12px rgb(20 24 40 / 0.28);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0d1117;
+  --surface: #111823;
+  --surface-2: #18202e;
+  --border: #212a39;
+  --border-strong: #2d3750;
+  --foreground: #e6edf3;
+  --muted-foreground: #8a97a8;
+  --primary: #818cf8;
+  --primary-foreground: #0d1117;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --status-todo: #9aa6b5;
+  --status-progress: #4493f8;
+  --status-review: #d4a72c;
+  --status-done: #3fb950;
+
+  --grad-primary: linear-gradient(135deg, #31338b 0%, #4353c6 55%, #476c9e 100%);
+  --grad-primary-hover: linear-gradient(135deg, #1e1b4b 0%, #312e81 52%, #34507e 100%);
+  --grad-banner: linear-gradient(120deg, #1e1b4b 0%, #2c2969 45%, #3f3a91 72%, #27415c 100%);
+
+  --elev-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -18px rgb(0 0 0 / 0.55);
+  --elev-dialog: 0 24px 70px -12px rgb(0 0 0 / 0.65);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-todo: var(--status-todo);
+  --color-progress: var(--status-progress);
+  --color-review: var(--status-review);
+  --color-done: var(--status-done);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==================================================================== */
+/* Project card header gradients (admin/team pick one per project).      */
+/* Navy/indigo family first, then distinct-but-tasteful hues.            */
+/* ==================================================================== */
+.grad-proj-indigo {
+  background-image: linear-gradient(135deg, #3730a3, #4f46e5 45%, #1e3a5f);
+}
+.grad-proj-ocean {
+  background-image: linear-gradient(135deg, #1e3a5f, #4353c6 55%, #312e81);
+}
+.grad-proj-steel {
+  background-image: linear-gradient(135deg, #1e293b, #334155 55%, #0f172a);
+}
+.grad-proj-sky {
+  background-image: linear-gradient(135deg, #0369a1, #2563eb 50%, #1e1b4b);
+}
+.grad-proj-teal {
+  background-image: linear-gradient(135deg, #0f766e, #14b8a6 45%, #134e4a);
+}
+.grad-proj-amber {
+  background-image: linear-gradient(135deg, #9a3412, #d97706 50%, #713405);
+}
+
+/* Navigation between pages never jiggles horizontally: the viewport scrollbar
+   gutter is reserved even on pages shorter than the screen. overflow-y:scroll
+   additionally pins the scrollbar TRACK itself, so opening a dialog (react-
+   remove-scroll sets body overflow:hidden) can never make the viewport
+   scrollbar vanish and reappear - the classic layout-shift/jitter users feel
+   on every modal open/close. The track takes the page surface color so on
+   full-bleed pages it blends in. */
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+  /* Purposeful scrolls (anchor jumps, hashed navigation, back-to-top) glide
+     instead of snapping; wheel/trackpad scrolling is untouched (OS-driven). */
+  scroll-behavior: smooth;
+  background-color: var(--surface);
+}
+
+/* Users who opt out of motion get the instant snap back. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* react-remove-scroll (Radix dialogs) compensates the scrollbar it believes it
+   removed by adding margin/padding-right to body. With the track pinned above,
+   nothing is ever removed - letting the compensation shrink body would MOVE
+   right-aligned layout on every dialog open. Zero it out: the scrollbar stays,
+   body width stays, dialogs lock scrolling purely via the library's JS. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Rich-feedback content (Tiptap bodies + sanitized rendered notes). */
+.rt-content p {
+  margin: 0 0 0.35em;
+}
+.rt-content p:last-child,
+.rt-content .ProseMirror-gapcursor + p {
+  margin-bottom: 0;
+}
+.rt-content ul,
+.rt-content ol {
+  margin: 0 0 0.35em;
+  padding-left: 1.35em;
+}
+.rt-content img {
+  max-width: min(420px, 100%);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, #e2e5ea);
+  margin: 0.2em 0;
+}
+.rt-content a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.rt-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-muted, #8a90a0);
+}
+
+/* Interactive chrome always shows the pointing cursor (links, buttons,
+   selects, checkbox/radio labels, menus, tabs, option rows). */
+a:not([aria-disabled="true"]),
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="combobox"]:not([aria-disabled="true"]),
+[role="menuitem"],
+[role="option"],
+[role="radio"],
+[role="checkbox"],
+[role="tab"],
+[role="switch"],
+summary,
+select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  cursor: pointer;
+}
+
+/* Thin, unobtrusive scrollbars everywhere. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Selection */
+::selection {
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+/* ------------------- brand gradient + elevation utilities ------------------ */
+/* Declared with @utility so Tailwind variants (hover:, group-hover:) work.  */
+
+@utility bg-gradient-primary {
+  background-image: var(--grad-primary);
+}
+@utility bg-gradient-primary-hover {
+  background-image: var(--grad-primary-hover);
+}
+@utility bg-gradient-soft {
+  background-image: var(--grad-soft);
+}
+@utility bg-gradient-banner {
+  background-image: var(--grad-banner);
+}
+/* White-based decorative mesh for splash panels (auth / hero). */
+@utility bg-gradient-mesh {
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 8% 0%, rgb(49 46 129 / 0.10), transparent 60%),
+    radial-gradient(ellipse 50% 44% at 96% 6%, rgb(67 56 202 / 0.10), transparent 62%),
+    radial-gradient(ellipse 70% 60% at 50% 108%, rgb(30 58 95 / 0.08), transparent 65%);
+}
+@utility text-gradient-primary {
+  background-image: var(--grad-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft elevation helpers (composable, theme-aware). */
+@utility elev-card {
+  box-shadow: var(--elev-card);
+}
+@utility elev-dialog {
+  box-shadow: var(--elev-dialog);
+}
+
+/* Reserve scrollbar space so it never toggles layout width. */
+@utility scrollbar-stable {
+  scrollbar-gutter: stable;
+}
+
+/* Modern slim scrollbar for inner scroll areas (modal columns, panels). */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 24%, transparent) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 22%, transparent);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.scroll-thin:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 38%, transparent);
+  background-clip: padding-box;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Even slimmer variant for dense panels like the ticket modal columns. */
+.scroll-thin-xs {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 14%, transparent) transparent;
+}
+.scroll-thin-xs::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.scroll-thin-xs::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.scroll-thin-xs:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 30%, transparent);
+  background-clip: padding-box;
+}
+.scroll-thin-xs::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Quiet, consistent motion (taste house rules: hover steps, click presses). */
+@media (prefers-reduced-motion: no-preference) {
+  .press {
+    transition:
+      transform 160ms var(--motion-ease, cubic-bezier(0.2, 0.7, 0.3, 1)),
+      box-shadow 160ms ease-out,
+      filter 160ms ease-out;
+  }
+  .press:hover {
+    transform: translateY(-1px);
+  }
+  .press:active {
+    transform: translateY(0) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .press:hover,
+  .press:active {
+    transform: none;
+  }
+}
