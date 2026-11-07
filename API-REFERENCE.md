@@ -30,17 +30,17 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | POST `/api/auth/logout` | session | - | `{ ok: true }` | Clears cookie |
 | GET `/api/auth/me` | session | - | `{ user }` or 401 | SessionUser DTO |
 | GET `/api/projects` | session (member-scoped) | - | `{ projects }` | List of my projects |
-| POST `/api/projects` | session | `createProjectSchema` | `{ project }(201)` | Creator becomes project admin |
+| POST `/api/projects` | session | `createProjectSchema` | `{ project }(201)` | Creator becomes project admin; duplicate name (case-insensitive, trimmed) -> 409 `code: PROJECT_NAME_TAKEN` |
 | GET `/api/projects/[id]` | `read` | - | `{ project }` | Detail incl. populated members |
-| PATCH `/api/projects/[id]` | `write` | `updateProjectSchema` {name?, description?, backgroundUrl?, gradientKey?, defaultQuestions? (null clears)} | `{ project }` | gradientKey allowlisted (`""`normalizes to null); defaultQuestions max 5 templates |
+| PATCH `/api/projects/[id]` | `write` | `updateProjectSchema` {name?, description?, backgroundUrl?, gradientKey?, defaultQuestions? (null clears)} | `{ project }` | gradientKey allowlisted (`""`normalizes to null); defaultQuestions max 5 templates; rename onto another project's name -> 409 `PROJECT_NAME_TAKEN` (own-name rename = no-op) |
 | DELETE `/api/projects/[id]` | `manage` | - | `{ ok: true }` | Removes project + its tickets + **best-effort storage cleanup of every media key those tickets referenced** |
 | POST `/api/projects/[id]/members` | `manage` | `addMemberSchema` {email, role} | member | 409 unknown/dupe email |
 | PATCH `/api/projects/[id]/members` | `manage` | `updateMemberSchema` {userId, role} | member | |
 | DELETE `/api/projects/[id]/members` | `manage` | `removeMemberSchema` {userId} | `{ ok: true }` | |
 | GET `/api/tickets?projectId=&assignee=&status=` | `read` | query param `projectId` required | `{ tickets }` | statuses: todo/in_progress/in_review/done |
-| POST `/api/tickets` | `write` | `createTicketSchema` {projectId, title?, ...; questions[] max 20} | `{ ticket }(201)` | Questions created with ticket |
+| POST `/api/tickets` | `write` | `createTicketSchema` {projectId, title?, ...; questions[] max 20} | `{ ticket }(201)` | Questions created with ticket; duplicate title within the SAME project -> 409 `code: TICKET_NAME_TAKEN` (other projects may reuse it) |
 | GET `/api/tickets/[id]` | `read` | - | `{ ticket }` | Full ticket DTO |
-| PATCH `/api/tickets/[id]` | `write` | `updateTicketSchema` {title?, priority?, assigneeId?, dueDate?, description?} | `{ ticket }` | Activity field-diffs recorded; dropped description images / removed attachments get **best-effort storage cleanup** (keys still visible elsewhere are kept) |
+| PATCH `/api/tickets/[id]` | `write` | `updateTicketSchema` {title?, priority?, assigneeId?, dueDate?, description?} | `{ ticket }` | Activity field-diffs recorded; dropped description images / removed attachments get **best-effort storage cleanup** (keys still visible elsewhere are kept); rename onto a sibling's title -> 409 `TICKET_NAME_TAKEN` (own-title rename = no-op) |
 | DELETE `/api/tickets/[id]` | `write` | - | `{ ok: true }` | **Best-effort storage cleanup**: attachments + description/comment/review-note images deleted (S3 object via driver, legacy `.data/uploads` file otherwise) |
 | POST `/api/tickets/[id]/move` | `write` | `moveSchema` {updates: [{id, status, order}]} | `{ ok: true }` | Client reindexes affected columns after DnD |
 | POST `/api/tickets/[id]/comments` | `read` (member) | `commentSchema` {body(html-safe string)} | `{ ticket }` | Rich text; timeline note; persistence-sanitized (`stripDangerousHtml`) |
@@ -59,6 +59,8 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | POST `/api/users` | admin | `createUserByAdminSchema` {name, email, password, role} | `{ user }` | 409 duplicate email |
 
 | POST `/api/auth/login` | - | `loginSchema` {email, password} | `{ user }` + cookie | Rate limit 10/5min per IP+email counting ONLY failed attempts (`assertLoginAllowed` read-only check + `recordLoginFailure` on 401 paths) → 401s then 429; successful logins never consume the window |
+
+Error contract: every error response carries `{ error: <EN detail>, code: <stable machine code> }` - codes `VALIDATION`, `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `SERVICE_UNAVAILABLE`, `AI_MAINTENANCE`, `PROJECT_NAME_TAKEN`, `TICKET_NAME_TAKEN`, `INTERNAL` - consumed by the client i18n layer (`explainApi`) to render toasts/inline errors in the active EN/JA language.
 | POST `/api/tickets` | `write` | `createTicketSchema` | `{ ticket }(201)` | Rate limit 30/min per user → 429 |
 | POST `/api/tickets/[id]/comments` | member | - | - | Rate limit 20/min per user → 429 |
 | POST `/api/tickets/[id]/review` | client | - | - | Rate limit 20/min per user → 429 |

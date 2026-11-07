@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProjectAction } from "@/app/actions/projects";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { stripRichHtml } from "@/lib/sanitize";
 import { gradientClassFor } from "@/lib/gradients";
 import type { GlobalRole, ProjectDTO } from "@/lib/types";
@@ -81,7 +82,7 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
     const result = await createProjectAction({ name: name.trim(), description: description.trim() });
     setBusy(false);
     if (!result.ok) {
-      setError(result.error ?? t("home.createFail"));
+      setError(explainApi(result, t, "home.createFail"));
       return;
     }
     toast.success(t("home.projectCreated"));

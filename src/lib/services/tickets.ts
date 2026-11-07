@@ -7,6 +7,7 @@ import { ApiError, badRequest, notFound } from "@/lib/api";
 import { getProjectAccess } from "@/lib/rbac";
 import type { SessionUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import { escapeRegExp } from "@/lib/utils";
 import {
   collectTicketStorageKeys,
   deleteStorageObjects,
@@ -25,6 +26,34 @@ import type {
 } from "@/lib/validation";
 
 const { ObjectId } = Types;
+
+/**
+ * Ticket TITLES are unique WITHIN their project (case-insensitive,
+ * whitespace-trim) - different projects may reuse the same title. Enforced
+ * on create AND rename; the API surfaces TICKET_NAME_TAKEN so clients
+ * render a localized toast.
+ */
+async function assertUniqueTicketTitle(
+  projectId: Types.ObjectId,
+  title: string,
+  excludeId?: Types.ObjectId,
+) {
+  const trimmed = title.trim();
+  if (!trimmed) return;
+  const filter: Record<string, unknown> = {
+    projectId,
+    title: { $regex: `^${escapeRegExp(trimmed)}$`, $options: "i" },
+  };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const clash = await TicketModel.findOne(filter).select("_id").lean();
+  if (clash) {
+    throw new ApiError(
+      409,
+      "That ticket title already exists in this project.",
+      "TICKET_NAME_TAKEN",
+    );
+  }
+}
 
 interface ActivityEntry {
   type: ActivityType;
@@ -130,6 +159,7 @@ export async function createTicket(
   if (input.dueDate && Number.isNaN(Date.parse(input.dueDate))) {
     throw badRequest("Invalid due date.");
   }
+  await assertUniqueTicketTitle(project._id, input.title);
 
   const status = input.status;
   const base: Record<string, unknown> = {
@@ -226,7 +256,13 @@ export async function updateTicket(
   }
 
   const set: Record<string, unknown> = {};
-  if (input.title !== undefined) set.title = input.title;
+  if (input.title !== undefined) {
+    // Same-title (case/whitespace drift) renames are a no-op, not a conflict.
+    if (input.title.trim().toLowerCase() !== ticket.title.trim().toLowerCase()) {
+      await assertUniqueTicketTitle(project._id, input.title, ticket._id);
+    }
+    set.title = input.title;
+  }
   if (input.description !== undefined) set.description = input.description;
   if (input.priority !== undefined) set.priority = input.priority;
   if (input.dueDate !== undefined) {

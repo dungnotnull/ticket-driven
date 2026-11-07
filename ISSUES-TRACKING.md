@@ -22,6 +22,7 @@ this file tracks the STATE.
 | O-12 | Low | Dev tooling | Next's INCREMENTAL CACHE (.next/cache) can serve stale RSC pages in a long-lived dev server after source edits - console errors (like the fixed duplicate-key) appear "still present" though the code is fixed; a cache-busted URL or a fresh dev start settles it | Cache-bust / restart before diagnosing; production builds render fresh | Accepted (documented) |
 | O-13 | Info | Ops (deploy) | The B2 bucket CORS rule `dymticket-presign` currently allows only localhost:3000 origins - the REAL production origin must be added before the deployed app can upload | Add the deploy origin (s3_put/s3_get) to the bucket rule right after the domain is known | Pending (user deploy step) |
 | O-14 | Info | Ops (security) | The B2 application key secret was shared in chat during activation | Rotate the key after the session (create key v2, update .env.local, delete the old) | Pending (user step) |
+| O-15 | Info | Product decision | Media GET stays AUTH-CHECKED (project-scoped); anonymous/public link sharing disabled - the round-25 "open full public view" suggestion was skipped because view+upload was already verified 100%; revisit only if shareable media URLs are wanted (would need signing or a public bucket) | None (deliberate) | By design |
 
 ## Resolved highlights (all verified after fix - details in IMPLEMENTATION-NOTES.md)
 

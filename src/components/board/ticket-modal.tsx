@@ -28,6 +28,7 @@ import { QuestionsPanel } from "./questions-panel";
 import { ReviewPanel } from "./review-panel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { timeAgo } from "@/lib/utils";
 import { COLUMN_KEYS, COLUMN_LABELS, PRIORITY_LABELS } from "@/lib/types";
@@ -183,7 +184,7 @@ export function TicketModal({
         onClose();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("ticket.saveFail"));
+      setError(explainApi(err, t, "ticket.saveFail"));
     } finally {
       setBusy(false);
     }
@@ -198,7 +199,7 @@ export function TicketModal({
       toast.success(t("ticket.deleted"));
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("ticket.deleteFail"));
+      toast.error(explainApi(err, t, "ticket.deleteFail"));
     } finally {
       setBusy(false);
     }
@@ -220,7 +221,7 @@ export function TicketModal({
       setComment("");
       setCommentEmpty(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("ticket.commentFail"));
+      toast.error(explainApi(err, t, "ticket.commentFail"));
     } finally {
       setCommentBusy(false);
     }

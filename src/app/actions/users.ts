@@ -19,7 +19,7 @@ export async function changeGlobalRoleAction(
     revalidatePath("/admin");
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -32,7 +32,7 @@ export async function deleteUserAction(
     revalidatePath("/admin");
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -52,6 +52,6 @@ export async function createUserAction(
     revalidatePath("/admin");
     return { ok: true, data: user };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }

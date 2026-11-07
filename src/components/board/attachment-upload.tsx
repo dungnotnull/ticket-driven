@@ -12,7 +12,8 @@ import {
 import { toast } from "sonner";
 import { cn, formatBytes } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
-import { apiFetch } from "@/lib/fetcher";
+import { apiFetch, ApiClientError } from "@/lib/fetcher";
+import { explainApi } from "@/lib/i18n/dictionary";
 import {
   ALLOWED_ATTACHMENT_TYPES,
   MAX_ATTACHMENT_BYTES,
@@ -166,12 +167,11 @@ export function AttachmentUpload({
       } catch (error) {
         console.error("[attachment] upload failed:", error);
         // Safety: cloud storage un-configured -> clear, calm message (no crash)
-        const message = error instanceof Error ? error.message : "";
-        const storageUnconfigured = message.includes("not configured");
+        const unconfigured = error instanceof ApiClientError && error.status === 503;
         toast.error(
-          storageUnconfigured
+          unconfigured
             ? t("att.unconfigured")
-            : t("att.fail", { name: file.name }),
+            : explainApi(error, t, "att.uploadFail"),
         );
         onChange((prev) => prev.filter((draft) => draft.placeholderId !== placeholderId));
       }

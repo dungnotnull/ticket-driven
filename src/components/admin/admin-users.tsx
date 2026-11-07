@@ -29,6 +29,7 @@ import {
   deleteUserAction,
 } from "@/app/actions/users";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import type { AdminUserDTO } from "@/lib/services/users";
@@ -65,7 +66,7 @@ export function AdminUsers({ currentUserId, initialUsers }: AdminUsersProps) {
     const result = await changeGlobalRoleAction({ userId, globalRole: role });
     setBusyId(null);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(explainApi(result, t, "admin.roleFail"));
       return;
     }
     setUsers((prev) =>
@@ -82,7 +83,7 @@ export function AdminUsers({ currentUserId, initialUsers }: AdminUsersProps) {
     setBusyId(null);
     setRemoveTarget(null);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(explainApi(result, t, "admin.deleteFail"));
       return;
     }
     setUsers((prev) => prev.filter((u) => u.id !== userId));
@@ -96,7 +97,7 @@ export function AdminUsers({ currentUserId, initialUsers }: AdminUsersProps) {
     const result = await createUserAction(form);
     setBusy(false);
     if (!result.ok) {
-      setError(result.error ?? t("admin.createFail"));
+      setError(explainApi(result, t, "admin.createFail"));
       return;
     }
     if (result.data) setUsers((prev) => [...prev, result.data!]);

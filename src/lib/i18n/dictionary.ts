@@ -241,6 +241,8 @@ export const DICT = {
   "q.answerFail": { en: "Could not save the answer.", ja: "回答を保存できませんでした。" },
   "q.updateFail": { en: "Could not update the question.", ja: "質問を更新できませんでした。" },
   "q.deleteFail": { en: "Could not delete the question.", ja: "質問を削除できませんでした。" },
+  "member.roleFail": { en: "Could not change the member's role.", ja: "メンバーの権限を変更できませんでした。" },
+  "member.removeFail": { en: "Could not remove the member.", ja: "メンバーを削除できませんでした。" },
 
 
   /* attachments */
@@ -380,6 +382,8 @@ export const DICT = {
   "admin.deleted": { en: "User deleted.", ja: "ユーザーを削除しました。" },
   "admin.created": { en: "User created.", ja: "ユーザーを作成しました。" },
   "admin.createFail": { en: "Could not create the user.", ja: "ユーザーを作成できませんでした。" },
+  "admin.roleFail": { en: "Could not update the user's role.", ja: "ユーザーの権限を更新できませんでした。" },
+  "admin.deleteFail": { en: "Could not delete the user.", ja: "ユーザーを削除できませんでした。" },
   "admin.dialogDesc": { en: "Create a member or stakeholder account.", ja: "メンバーまたはステークホルダーのアカウントを作成します。" },
   "admin.tempPassword": { en: "Temporary password", ja: "仮パスワード" },
   "admin.globalRole": { en: "Global role", ja: "全体ロール" },
@@ -466,15 +470,75 @@ export const DICT = {
   "prj.editDesc": { en: "Update the project name and description visible to every member.", ja: "全メンバーに表示されるプロジェクト名と説明を更新します。" },
   "prj.save": { en: "Save changes", ja: "変更を保存" },
   "prj.saved": { en: "Project updated.", ja: "プロジェクトを更新しました。" },
+  "prj.saveFail": { en: "Could not save the project. Try again.", ja: "プロジェクトを保存できませんでした。もう一度お試しください。" },
+  "att.uploadFail": { en: "Upload failed. Try again.", ja: "アップロードに失敗しました。もう一度お試しください。" },
+  "rt.uploadFail": { en: "Image upload failed. Try again.", ja: "画像のアップロードに失敗しました。もう一度お試しください。" },
   "err.notFoundTitle": { en: "This page doesn't exist", ja: "このページは存在しません" },
   "err.notFoundSub": { en: "The page you are looking for was moved, removed, or you don't have access to it.", ja: "お探しのページは移動・削除されたか、アクセス権がありません。" },
   "err.backToProjects": { en: "Back to projects", ja: "プロジェクトへ戻る" },
   "err.somethingWrong": { en: "Something went wrong", ja: "問題が発生しました" },
   "err.retry": { en: "Try again", ja: "再試行" },
   "err.unexpected": { en: "An unexpected error occurred while loading this page.", ja: "ページの読み込み中に予期しないエラーが発生しました。" },
+
+  /* API error messages surfaced in toasts - localized by the stable code the
+     API attaches to every error response (server message stays the EN detail) */
+  "api.authRequired": { en: "Please sign in first.", ja: "先にサインインしてください。" },
+  "api.forbidden": { en: "You don't have permission for this action.", ja: "この操作の権限がありません。" },
+  "api.notFound": { en: "That item no longer exists.", ja: "対象が見つかりませんでした。" },
+  "api.validation": { en: "Your input needs a small fix.", ja: "入力内容をご確認ください。" },
+  "api.conflict": { en: "That value is already in use.", ja: "その値は既に使用されています。" },
+  "api.rateLimited": { en: "Too many requests - please wait a moment and try again.", ja: "リクエストが集中しています。少し待ってからもう一度お試しください。" },
+  "api.serviceUnavailable": { en: "This service is briefly unavailable. Try again shortly.", ja: "このサービスは現在一時的に利用できません。しばらくしてからお試しください。" },
+  "api.aiMaintenance": { en: "AI review is temporarily unavailable.", ja: "AIレビューは現在一時的に利用できません。" },
+  "api.projectNameTaken": { en: "That project name is already used by another project.", ja: "そのプロジェクト名は他のプロジェクトで既に使用されています。" },
+  "api.ticketNameTaken": { en: "That ticket title already exists in this project.", ja: "このプロジェクトに同じタイトルのチケットが既に存在します。" },
+  "api.internal": { en: "Something went wrong on our side. Try again.", ja: "内部エラーが発生しました。もう一度お試しください。" },
 } as const;
 
 export type DictKey = keyof typeof DICT;
+
+/** Stable API error codes -> dict keys. Missing codes fall back to the server message. */
+const API_CODE_KEY: Record<string, string> = {
+  AUTH_REQUIRED: "api.authRequired",
+  FORBIDDEN: "api.forbidden",
+  NOT_FOUND: "api.notFound",
+  VALIDATION: "api.validation",
+  CONFLICT: "api.conflict",
+  RATE_LIMITED: "api.rateLimited",
+  SERVICE_UNAVAILABLE: "api.serviceUnavailable",
+  AI_MAINTENANCE: "api.aiMaintenance",
+  PROJECT_NAME_TAKEN: "api.projectNameTaken",
+  TICKET_NAME_TAKEN: "api.ticketNameTaken",
+  INTERNAL: "api.internal",
+};
+
+/**
+ * Localize an error for the toast layer: when the thrown/fetched error carries
+ * a known `code`, the message is rendered in the ACTIVE language; otherwise
+ * the caller's own localized fallback key (or the raw server detail if any)
+ * is used. Works for ApiClientError (API routes) and ActionResult errors
+ * ({ error, code } from server actions) alike.
+ */
+export function explainApi(
+  err: unknown,
+  t: (key: DictKey, vars?: Record<string, string | number>) => string,
+  fallbackKey: DictKey,
+  vars?: Record<string, string | number>,
+): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  const key = typeof code === "string" ? API_CODE_KEY[code] : undefined;
+  if (key && (DICT as Record<string, Entry | undefined>)[key]) {
+    return t(key as DictKey, vars);
+  }
+  const detail = (err as { message?: unknown; error?: unknown } | null);
+  const message =
+    typeof detail?.message === "string"
+      ? detail.message
+      : typeof detail?.error === "string"
+        ? detail.error
+        : "";
+  return message || t(fallbackKey, vars);
+}
 
 export function tFor(lang: Lang, key: DictKey, vars?: Record<string, string | number>): string {
   const entry = DICT[key] as Entry | undefined;

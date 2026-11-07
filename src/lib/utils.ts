@@ -41,3 +41,8 @@ export function avatarHue(seed: string): number {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
   return h;
 }
+
+/** Escape a string for safe embedding in a Mongo $regex (name-uniqueness). */
+export function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

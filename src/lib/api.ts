@@ -1,12 +1,42 @@
 import { ZodError } from "zod";
 
+/**
+ * Stable machine codes carried by every ApiError -> client i18n maps them to
+ * the active UI language (EN/JA) while the human message stays the server's
+ * English fallback detail.
+ */
+export type ApiErrorCode =
+  | "VALIDATION"
+  | "AUTH_REQUIRED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "RATE_LIMITED"
+  | "SERVICE_UNAVAILABLE"
+  | "AI_MAINTENANCE"
+  | "PROJECT_NAME_TAKEN"
+  | "TICKET_NAME_TAKEN"
+  | "INTERNAL";
+
+const DEFAULT_CODE: Record<number, ApiErrorCode> = {
+  400: "VALIDATION",
+  401: "AUTH_REQUIRED",
+  403: "FORBIDDEN",
+  404: "NOT_FOUND",
+  409: "CONFLICT",
+  429: "RATE_LIMITED",
+  503: "SERVICE_UNAVAILABLE",
+};
+
 /** Typed error thrown by guards/services, mapped to a JSON response. */
 export class ApiError extends Error {
   status: number;
+  code: ApiErrorCode;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: ApiErrorCode) {
     super(message);
     this.status = status;
+    this.code = code ?? DEFAULT_CODE[status] ?? "INTERNAL";
     this.name = "ApiError";
   }
 }
@@ -35,21 +65,27 @@ function zodMessage(error: ZodError): string {
 
 /**
  * Wrap a route handler: converts ApiError/ZodError into clean JSON errors
- * and logs unexpected failures.
+ * (message + stable code for client-side i18n) and logs unexpected failures.
  */
 export async function route(handler: () => Promise<Response>): Promise<Response> {
   try {
     return await handler();
   } catch (error) {
     if (error instanceof ApiError) {
-      return Response.json({ error: error.message }, { status: error.status });
+      return Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
     }
     if (error instanceof ZodError) {
-      return Response.json({ error: zodMessage(error) }, { status: 400 });
+      return Response.json(
+        { error: zodMessage(error), code: "VALIDATION" },
+        { status: 400 },
+      );
     }
     console.error("[api] unhandled error:", error);
     return Response.json(
-      { error: "Internal server error." },
+      { error: "Internal server error.", code: "INTERNAL" },
       { status: 500 },
     );
   }

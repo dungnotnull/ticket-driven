@@ -25,6 +25,7 @@ import { RichTextEditor } from "@/components/ui/rich-text";
 import { cn } from "@/lib/utils";
 import { updateProjectAction } from "@/app/actions/projects";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { PROJECT_GRADIENTS, gradientClassFor } from "@/lib/gradients";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import type { ProjectDefaultQuestionDTO, ProjectDTO } from "@/lib/types";
@@ -149,7 +150,7 @@ export function ProjectEditDialog({
         },
       });
       if (!result.ok || !result.data) {
-        setError(result.error ?? null);
+        setError(explainApi(result, t, "prj.saveFail"));
         return;
       }
       toast.success(t("prj.saved"));

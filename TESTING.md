@@ -55,6 +55,8 @@ the dev server must be running on `http://localhost:3000` first).
 | `probe_strip_pos.py` | progress strip geometry/position; self-seeds 7 filler tickets FIRST so column overflow (and the root-clip assertion) is guaranteed regardless of demo data size |
 | `probe_wow.py` (14) | analytics SVG panels, knowledge graph nodes + inspector + health score, EN/JA toggle, AI 503 toast, timeline tracking |
 | `probe_final_prd.py` (11) | full-page PRD sweep as a real user: dashboard+search, board kanban+table toggle, ticket modal rich-editor LIVE-B2 image upload (draft preview renders), analytics (`analytics-view` + svg), knowledge (`knowledge-graph`/nodes/health), admin users-table; page timings recorded (dashboard/board/analytics/knowledge/admin), 0 console errors |
+| `probe_duplicate_names.py` (17) | round-25 name rules: exact + case/whitespace duplicate PROJECT -> 409 `PROJECT_NAME_TAKEN`; rename onto another project's name -> 409; rename to own name (case drift) -> 200 no-op; duplicate ticket title WITHIN a project -> 409 `TICKET_NAME_TAKEN` (case variants too); the SAME title in ANOTHER project -> 201 and cross-project rename stays allowed; sibling rename clash -> 409; probe projects self-clean |
+| `probe_toast_locale.py` | round-25 locale contract: duplicate-project error renders the JA wording when the UI language is `ja` and the EN wording when `en` (real create-dialog flow both passes) |
 | `probe_roles_questions.py` / `probe_text_options.py` / `probe_round10.py` / `probe_hydration.py` | feature-era regression guards |
 | `probe_cache.py` also asserts | the DESIGNED 503 (AI without key) logs exactly one resource line - the only accepted console entry |
 
@@ -107,12 +109,15 @@ npm run lint
   source edits - verify console errors against a cache-busted URL or a fresh
   `npm run build`-grade restart before diagnosing.
 
-## Round-24 production-readiness gate (final sweep, all green)
+## Round-24/25 production-readiness gates (all green)
 
-- reseed → e2e 23/23 → reseed → full ordered battery
+- Round 24: reseed -> e2e 23/23 -> reseed -> full ordered battery
   (final_prd, storage_cleanup, security_media, b2_live, richtext, ui,
   quickset, modal_overflow, round15, gradients2, cache, scrolllock_clean,
   strip_pos, wow, responsive): **15/15 exit 0, 0 console errors**.
+- Round 25: reseed -> e2e 23/23 -> reseed -> battery incl. the two new
+  probes (duplicate_names 17/17, toast_locale PASS): **17/17 exit 0,
+  0 console errors** -> reseed.
 - `tsc --noEmit` 0, `eslint src` 0.
 - Backblaze bucket count after everything: **0 objects** (probe artifacts and
   probe projects fully cleaned; media lifecycle leaves no residue).

@@ -37,7 +37,7 @@ export async function createProjectAction(
     revalidatePath("/dashboard");
     return { ok: true, data: project };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -52,7 +52,7 @@ export async function updateProjectAction(
     revalidatePath(`/projects/${input.projectId}`);
     return { ok: true, data: project };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -65,7 +65,7 @@ export async function deleteProjectAction(
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -80,7 +80,7 @@ export async function addMemberAction(
     revalidatePath("/dashboard");
     return { ok: true, data: project };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -94,7 +94,7 @@ export async function updateMemberAction(
     revalidatePath(`/projects/${input.projectId}`);
     return { ok: true, data: project };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }
 
@@ -109,6 +109,6 @@ export async function removeMemberAction(
     revalidatePath("/dashboard");
     return { ok: true, data: project };
   } catch (error) {
-    return { ok: false, error: toError(error) };
+    return { ok: false, ...toError(error) };
   }
 }

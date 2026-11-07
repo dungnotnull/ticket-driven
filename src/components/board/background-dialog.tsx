@@ -15,6 +15,7 @@ import { updateProjectAction } from "@/app/actions/projects";
 import { BACKGROUND_GALLERY } from "@/lib/background-gallery";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 
 interface BackgroundDialogProps {
   projectId: string;
@@ -47,7 +48,7 @@ export function BackgroundDialog({
         patch: { backgroundUrl: url },
       });
       if (!result.ok || !result.data) {
-        toast.error(result.error ?? t("bg.fail"));
+        toast.error(explainApi(result, t, "bg.fail"));
         return;
       }
       onApplied(result.data.backgroundUrl);

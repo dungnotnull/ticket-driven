@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/ui/rich-text";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { cn, timeAgo } from "@/lib/utils";
@@ -94,7 +95,7 @@ export function ReviewPanel({ ticket, myRole, memberName, onUpdated }: ReviewPan
             : t("review.underReviewToast"),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("review.fail"));
+      toast.error(explainApi(error, t, "review.fail"));
     } finally {
       setBusy(false);
     }

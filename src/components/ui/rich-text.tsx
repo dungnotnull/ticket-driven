@@ -19,9 +19,10 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/fetcher";
+import { apiFetch, ApiClientError } from "@/lib/fetcher";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { MAX_EDITOR_IMAGES } from "@/lib/types";
 
 /** Auth-checked download URL for server-stored objects (same shape as the
@@ -124,11 +125,12 @@ export function RichTextEditor({
           .run();
         onMediaKeyUploaded?.(presign.key);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "";
+        const unavailable =
+          error instanceof ApiClientError && error.status === 503;
         toast.error(
-          message.includes("not configured")
+          unavailable
             ? t("att.unconfigured")
-            : t("att.fail", { name: file.name }),
+            : explainApi(error, t, "rt.uploadFail"),
         );
       } finally {
         setUploading(false);

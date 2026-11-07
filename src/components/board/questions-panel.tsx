@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn, timeAgo } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import type {
   ProjectDefaultQuestionDTO,
@@ -167,7 +168,7 @@ export function QuestionsPanel({
         toast.success(t("quick.added", { n: templates.length }));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("quick.fail"));
+      toast.error(explainApi(err, t, "quick.fail"));
     } finally {
       setQuickBusy(false);
     }
@@ -322,7 +323,7 @@ export function QuestionsPanel({
       }
       clearCreateForm();
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("q.addFail");
+      const message = explainApi(err, t, "q.addFail");
       setCreateError(message);
       toast.error(message);
     } finally {
@@ -370,7 +371,7 @@ export function QuestionsPanel({
       });
       onTicketUpdated?.(result.ticket);
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("q.answerFail");
+      const message = explainApi(err, t, "q.answerFail");
       setAnswerError(message);
       toast.error(message);
     } finally {
@@ -430,7 +431,7 @@ export function QuestionsPanel({
       }
       setEditingId(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("q.updateFail");
+      const message = explainApi(err, t, "q.updateFail");
       setEditError(message);
       toast.error(message);
     } finally {
@@ -452,7 +453,7 @@ export function QuestionsPanel({
       toast.success(t("q.deleted"));
       onTicketUpdated?.(result.ticket);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("q.deleteFail"));
+      toast.error(explainApi(err, t, "q.deleteFail"));
     }
     setConfirmDeleteQuestion(null);
   }

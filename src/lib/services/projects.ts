@@ -9,6 +9,7 @@ import type { SessionUser } from "@/lib/auth";
 import type { CreateProjectInput } from "@/lib/validation";
 import { connectDB } from "@/lib/db";
 import { isAllowedBackgroundUrl } from "@/lib/background-gallery";
+import { escapeRegExp } from "@/lib/utils";
 import {
   collectTicketStorageKeys,
   deleteStorageObjects,
@@ -20,6 +21,28 @@ function toLean(doc: unknown, message = "Project not found."): LeanProject {
   const lean = doc as LeanProject | null;
   if (!lean) throw new ApiError(404, message);
   return lean;
+}
+
+/**
+ * Project names are unique (case-insensitive, whitespace-trim). Enforced
+ * server-side on create AND rename; the API surfaces PROJECT_NAME_TAKEN so
+ * clients render a localized toast.
+ */
+async function assertUniqueProjectName(name: string, excludeId?: Types.ObjectId) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const filter: Record<string, unknown> = {
+    name: { $regex: `^${escapeRegExp(trimmed)}$`, $options: "i" },
+  };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const clash = await ProjectModel.findOne(filter).lean();
+  if (clash) {
+    throw new ApiError(
+      409,
+      "That project name is already used by another project.",
+      "PROJECT_NAME_TAKEN",
+    );
+  }
 }
 
 export async function listProjectsForUser(
@@ -42,6 +65,7 @@ export async function createProject(
   input: CreateProjectInput,
 ): Promise<ProjectDTO> {
   await connectDB();
+  await assertUniqueProjectName(input.name);
   const created = await ProjectModel.create({
     name: input.name,
     description: input.description ?? "",
@@ -84,7 +108,14 @@ export async function updateProjectMeta(
   // team; name/desc/gradient changes are the same project-meta dialog.
   const { project } = await getProjectAccess(projectId, "write", user);
   const update: Record<string, unknown> = {};
-  if (input.name !== undefined) update.name = input.name;
+  if (input.name !== undefined) {
+    // Renaming to a same-project title (even with case/whitespace drift) is
+    // a no-op, not a conflict; any OTHER project's name is rejected.
+    if (input.name.trim().toLowerCase() !== project.name.trim().toLowerCase()) {
+      await assertUniqueProjectName(input.name, project._id);
+    }
+    update.name = input.name;
+  }
   if (input.description !== undefined) update.description = input.description;
   if (input.backgroundUrl !== undefined) {
     // Server-side allowlist: only curated gallery URLs (or no background).

@@ -61,6 +61,7 @@ import { MembersDialog } from "@/components/board/members-dialog";
 import { BackgroundDialog } from "@/components/board/background-dialog";
 import { ProjectEditDialog } from "@/components/board/project-edit-dialog";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { cn, timeAgo } from "@/lib/utils";
@@ -293,7 +294,7 @@ export function BoardWorkspace({ project, tickets: initialTickets, myRole, myUse
         });
       } catch (error) {
         setTickets(snapshot);
-        toast.error(error instanceof Error ? error.message : t("board.moveFail"));
+        toast.error(explainApi(error, t, "board.moveFail"));
       } finally {
         setPersisting(false);
       }

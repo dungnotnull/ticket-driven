@@ -29,6 +29,7 @@ import {
   updateMemberAction,
 } from "@/app/actions/projects";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import type { ProjectDTO, ProjectRole } from "@/lib/types";
 
 interface MembersDialogProps {
@@ -67,7 +68,7 @@ export function MembersDialog({
     });
     setBusy(false);
     if (!result.ok || !result.data) {
-      setError(result.error ?? t("member.addFail"));
+      setError(explainApi(result, t, "member.addFail"));
       return;
     }
     setMembers(result.data.members);
@@ -82,7 +83,7 @@ export function MembersDialog({
       member: { userId, role: value },
     });
     if (!result.ok || !result.data) {
-      toast.error(result.error);
+      toast.error(explainApi(result, t, "member.roleFail"));
       return;
     }
     setMembers(result.data.members);
@@ -99,7 +100,7 @@ export function MembersDialog({
     setRemoving(false);
     setRemoveTarget(null);
     if (!result.ok || !result.data) {
-      toast.error(result.error);
+      toast.error(explainApi(result, t, "member.removeFail"));
       return;
     }
     setMembers(result.data.members);

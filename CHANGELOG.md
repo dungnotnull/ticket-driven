@@ -6,6 +6,42 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 25 (localized API toasts, duplicate-name rules, final battery re-verified)
+
+- **Localization of every API error/success toast**: every `ApiError` now
+  carries a stable machine `code` (`VALIDATION`, `AUTH_REQUIRED`,
+  `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`,
+  `SERVICE_UNAVAILABLE`, `AI_MAINTENANCE`, `PROJECT_NAME_TAKEN`,
+  `TICKET_NAME_TAKEN`, `INTERNAL`) and route handlers emit `{error, code}`;
+  server actions return `{ ok:false, error, code }` the same way. The client
+  `apiFetch` preserves the code (`ApiClientError`), and a new
+  `explainApi(err, t, fallbackKey)` helper renders the message in the ACTIVE
+  UI language (new `api.*` dict keys EN/JA) falling back to the caller's own
+  localized string. All 16 error-toast/inline-error surfaces switched to it
+  (ticket modal, review, questions, quick-add, members, admin users,
+  background, attachments, rich-text uploads, moves, project create/edit).
+- **Duplicate-name rules**: project names are GLOBALLY unique
+  (case-insensitive + trimmed) on create AND rename; ticket titles are
+  unique WITHIN their project (same normalization) on create AND rename -
+  the same title in ANOTHER project stays allowed, and renaming to one's own
+  existing title (case/whitespace drift) is a no-op, not a conflict. Both
+  answered 409 with the codes above so the dialog/toast localizes.
+- **Verified** (user's conditions): image upload + view is already 100%
+  handled (draft previews included), so the suggested open-public file view
+  was skipped BY DESIGN - serving stays auth-checked (private bucket, no
+  anonymous media URL) and both live probes prove member viewing works.
+  Caching model re-verified and documented: TTL cache only for expensive
+  aggregates (org stats 2 min / knowledge 5 min, per-user, invalidated by
+  every Mongoose write); board, tickets, search and dashboard lists are
+  ALWAYS fetched fresh; pages render per-request (`instant = false`) - no
+  static build layer can serve stale critical data.
+- **New probes**: `probe_duplicate_names.py` 17/17 (exact/case variants,
+  same-name rename no-op, cross-project title reuse, localized codes),
+  `probe_toast_locale.py` (JA + EN inline error wording for the duplicate
+  project toast). Round-25 final gate: fresh reseed -> e2e **23/23** ->
+  reseed -> full battery **17/17 exit 0, 0 console errors** -> reseed;
+  tsc 0 / eslint 0; bucket back to **0 objects**.
+
 ## 2026-11-07 - round 24 (production-readiness sweep: full e2e + full probe battery verified)
 
 - **Files route re-authorization (draft previews)**: `GET /api/files/<key>`

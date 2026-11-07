@@ -5,6 +5,7 @@ import { LoaderCircle, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/i18n";
+import { explainApi } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { cn } from "@/lib/utils";
 import type { AiReviewDTO } from "@/lib/services/ai-review";
@@ -36,7 +37,7 @@ export function AiReviewPanel({ ticketId }: AiReviewPanelProps) {
       toast.success(t("ai.ready"));
     } catch (err) {
       // Maintenance / rate limits: calm toast only, the page keeps working.
-      toast.error(err instanceof Error ? err.message : t("ai.maintenance"));
+      toast.error(explainApi(err, t, "ai.maintenance"));
       setReview(null);
     } finally {
       setBusy(false);

@@ -23,7 +23,7 @@ export interface AiReviewDTO {
 export const AI_MAINTENANCE_MESSAGE = "AI assistant is temporarily unavailable (maintenance).";
 
 function aiUnavailable(): ApiError {
-  return new ApiError(503, AI_MAINTENANCE_MESSAGE);
+  return new ApiError(503, AI_MAINTENANCE_MESSAGE, "AI_MAINTENANCE");
 }
 
 /* ----------------------- response validation ---------------------- */

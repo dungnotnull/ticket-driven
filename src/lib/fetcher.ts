@@ -2,10 +2,13 @@
 
 export class ApiClientError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Stable machine code from the API (client i18n keys off it). */
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiClientError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -31,11 +34,13 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
+    const body = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
     const message =
-      (payload && typeof payload === "object" && "error" in payload
-        ? String((payload as { error: unknown }).error)
-        : null) ?? `Request failed (${response.status})`;
-    throw new ApiClientError(response.status, message);
+      (body && "error" in body ? String(body.error) : null) ??
+      `Request failed (${response.status})`;
+    const code =
+      body && typeof body.code === "string" ? body.code : undefined;
+    throw new ApiClientError(response.status, message, code);
   }
   return payload as T;
 }

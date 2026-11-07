@@ -5,16 +5,28 @@ import { ZodError } from "zod";
 export interface ActionResult<T = undefined> {
   ok: boolean;
   error?: string;
+  /** Stable machine code so the client can localize the message. */
+  code?: string;
   data?: T;
 }
 
-/** Convert any thrown value into a safe, user-facing error string. */
-export function toError(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
+/** Convert any thrown value into a safe, user-facing error + i18n code. */
+export function toError(
+  error: unknown,
+): { message: string; code: string } {
+  if (error instanceof ApiError) {
+    return { message: error.message, code: error.code };
+  }
   if (error instanceof ZodError) {
     const issue = error.issues[0];
-    return issue ? issue.message : "Validation failed.";
+    return {
+      message: issue ? issue.message : "Validation failed.",
+      code: "VALIDATION",
+    };
   }
   console.error("[action] unexpected error:", error);
-  return "Something went wrong. Please try again.";
+  return {
+    message: "Something went wrong. Please try again.",
+    code: "INTERNAL",
+  };
 }
