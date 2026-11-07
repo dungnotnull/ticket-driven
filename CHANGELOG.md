@@ -41,12 +41,15 @@ calendar dates. Status of every line: DONE + probe-verified.
   Google project has the FREE TIER DISABLED - every generateContent call
   403s with "set up billing". Per the user's own condition ("if this key
   works"), it is NOT enabled in `.env.local` (commented placeholder with
-  the exact 403 reason); the ROTATION MECHANISM is still proven E2E by
-  shipping a bogus key 1 (`AQ.Bogus...`, expect 400) + the real key as
-  key 2 -> server logged `key 1 rejected at key level - switching to the
-  next API key` and the UI still rendered a real review (45/100 + 5
-  suggestions, 0 console errors). Normal path re-verified after restore;
-  e2e 23/23; tsc 0 / eslint 0.
+  the exact 403 reason); a REPLACEMENT second key (also user-provided,
+  AI Studio project) then PASSED the same test battery - both lite
+  models respond - and was wired in as `GEMINI_API_KEY_2`.
+- ROTATION MECHANISM proven E2E twice: with a bogus key 1 (`AQ.Bogus...`,
+  expect 400) server logged `key 1 rejected at key level - switching to
+  the next API key` and the UI still rendered a real review (0 console
+  errors). Final config = key 1 primary + working key 2 fallback +
+  `gemini-3.1-flash-lite` / `gemini-3.5-flash-lite` chain; normal path
+  re-verified after restore; e2e 23/23; tsc 0 / eslint 0.
 
 ## 2026-11-07 - round 20 (free-tier model rotation)
 
