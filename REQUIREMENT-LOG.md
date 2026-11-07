@@ -72,6 +72,7 @@ stable IDs, one row per requirement, no prose drift.
 | REQ-037 | Env audit: all important keys present | DONE | .env.example + .env.local (R2 empty = designed 503; GEMINI + SITE_URL placeholders added) |
 | REQ-038 | .gitignore hardened for GitHub push safety | DONE | root + nested gitignores (env variants, .data/, keys, IDE, .qa/) |
 | REQ-039 | Add CHANGELOG / API-REFERENCE / DATA-MODEL / TESTING / REQUIREMENT-LOG docs | DONE | this file set |
+| REQ-040 | Add 5 more card-header gradient presets for richer choice (round 18) | DONE | gradients.ts + globals.css `rose/emerald/lagoon/mist/midnight` + dict EN/JA; PROBE probe_gradients2.py 11/11, e2e 23/23 |
 
 ## Explicitly declined / out of scope (user decisions)
 

@@ -445,6 +445,11 @@ export const DICT = {
   "grad.sky": { en: "Sky line", ja: "スカイ・ライン" },
   "grad.teal": { en: "Teal wave", ja: "ティール・ウェーブ" },
   "grad.amber": { en: "Amber dusk", ja: "アンバー・ダスク" },
+  "grad.rose": { en: "Soft rose", ja: "ソフト・ローズ" },
+  "grad.emerald": { en: "Emerald deep", ja: "エメラルド・ディープ" },
+  "grad.lagoon": { en: "Lagoon cyan", ja: "ラグーン・シアン" },
+  "grad.mist": { en: "Morning mist", ja: "モーニング・ミスト" },
+  "grad.midnight": { en: "Midnight", ja: "ミッドナイト" },
   "grad.usesPreset": { en: "Using a custom gradient:", ja: "カスタムグラデーション使用中:" },
   "grad.usesAuto": { en: "Automatic cover (name-based). Click a swatch to choose a custom one.", ja: "自動カバー（名前ベース）。スウォッチをクリックすると変更できます。" },
 

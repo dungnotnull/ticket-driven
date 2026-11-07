@@ -20,6 +20,11 @@ export const PROJECT_GRADIENTS: readonly ProjectGradient[] = [
   { key: "sky", dictKey: "grad.sky", className: "grad-proj-sky" },
   { key: "teal", dictKey: "grad.teal", className: "grad-proj-teal" },
   { key: "amber", dictKey: "grad.amber", className: "grad-proj-amber" },
+  { key: "rose", dictKey: "grad.rose", className: "grad-proj-rose" },
+  { key: "emerald", dictKey: "grad.emerald", className: "grad-proj-emerald" },
+  { key: "lagoon", dictKey: "grad.lagoon", className: "grad-proj-lagoon" },
+  { key: "mist", dictKey: "grad.mist", className: "grad-proj-mist" },
+  { key: "midnight", dictKey: "grad.midnight", className: "grad-proj-midnight" },
 ] as const;
 
 const GRADIENT_KEYS = new Set(PROJECT_GRADIENTS.map((g) => g.key));

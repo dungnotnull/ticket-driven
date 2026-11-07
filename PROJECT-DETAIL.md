@@ -69,7 +69,7 @@ Env template: `.env.example` (`MONGODB_URI`, `AUTH_SECRET`, `R2_*`,
   block approval; authorable in the create modal; quick-add "Default set"
   button clones project-level templates (max 5) as INDEPENDENT copies.
 - **Project meta**: name/description, board background (curated Unsplash
-  gallery), card-header gradient presets (6, `.grad-proj-*`), default
+  gallery), card-header gradient presets (11, `.grad-proj-*`), default
   question set - all editable by admin AND team (`write` level).
 - **Review workflow**: client-only; `approved -> Done`,
   `changes_requested -> In Progress` (note required), `under_review` no move.

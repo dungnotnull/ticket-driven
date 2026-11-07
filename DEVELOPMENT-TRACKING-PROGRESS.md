@@ -32,6 +32,8 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 | 2026-11-07, round 16 refinements | DONE | Independent-copy contract proven; project-edit dialog widened (md -> lg), short `dq.type*` dropdown labels; gradient `""` legacy edge fixed (normalize chain service/serialize/dialog); probe_quickset re-verified | project-edit-dialog.tsx, services/projects.ts, serialize.ts |
 | 2026-11-07, round 17 | DONE | Site-wide responsive audit: dialog primitive phone gutters `w-[calc(100%-1.5rem)]`, mobile nav strip (`mobile-nav`), 390/768 overflow sweep + 7 modal gutter checks, probe_responsive 17/17 | ui/dialog.tsx, app-shell.tsx, probe_responsive.py |
 | 2026-11-07, docs round | DONE | All MD files updated to 100% English + accurate current state (README reworked, notes restructured, CLAUDE.md refreshed; new PROJECT-DETAIL / DEVELOPMENT-TRACKING-PROGRESS / MVPS / ISSUES-TRACKING / RULES / SECOND-BRAIN-KNOWLEDGE / DESIGN); env audit + gitignore hardening | MD files, .env.example, .gitignore |
+| 2026-11-07, git round | DONE | Standalone git init in kanban-app (branch main) + remote origin github.com/dungnotnull/ticket-driven; staging safety verified (no .env.local/.data/node_modules); pushed 141 files onto the LICENSE commit after rebase | .gitignore, all project files |
+| 2026-11-07, round 18 | DONE | 5 more card-header gradient presets (6 -> 11: rose/emerald/lagoon/mist/midnight) with EN/JA picker names; probe_gradients2.py 11/11 + full e2e 23/23; commit + push to GitHub main | lib/gradients.ts, globals.css, dictionary.ts, .qa/probe_gradients2.py |
 
 ## LIMITATION (current, acknowledged)
 

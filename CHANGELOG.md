@@ -6,6 +6,25 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 18 (richer gradient palette + first GitHub push)
+
+### Added
+- 5 more project card-header gradient presets (6 -> 11): `rose` (Soft
+  rose), `emerald` (Emerald deep), `lagoon` (Lagoon cyan), `mist` (Morning
+  mist), `midnight` (Midnight) - same dark -> vivid -> darkest 135deg
+  pattern, EN/JA names in the picker; brand rule holds (no violet/fuchsia).
+
+### Changed
+- Project repo published: standalone git initialized in `kanban-app/`,
+  remote `github.com/dungnotnull/ticket-driven`, LICENSE commit rebased,
+  141 files pushed to `main` (staging verified free of `.env.local`,
+  `.data/`, `node_modules`).
+
+### Verified
+- NEW `probe_gradients2.py`: 11 checks, 0 console errors (11 swatches,
+  pick -> save -> rendered + computed color, persistence, 390px wrap,
+  reset-to-automatic); full e2e 23/23; tsc/lint 0; reseeded after.
+
 ## 2026-11-07 - rounds 15-17 (interaction, questions UX, responsiveness)
 
 ### Added

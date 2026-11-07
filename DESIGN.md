@@ -43,11 +43,18 @@ variants work.
 
 ## Project visuals
 
-- **Card-header gradients** (6 presets, `.grad-proj-*`): `indigo`, `ocean`,
-  `steel`, `sky`, `teal`, `amber`. Chosen in the project edit dialog
+- **Card-header gradients** (11 presets, `.grad-proj-*`): `indigo`, `ocean`,
+  `steel`, `sky`, `teal`, `amber`, `rose`, `emerald`, `lagoon`, `mist`,
+  `midnight`. Chosen in the project edit dialog
   (`gradient-picker`, click selected swatch again to reset). Server
   allowlist `isProjectGradient`; `null`/`""` = automatic name-hash cover
   (legacy look is preserved when unset).
+  Exact value pattern for every preset:
+  `linear-gradient(135deg, <dark>, <vivid> <N>%, <darkest>)` - brand navy
+  stops or one distinct tasteful hue (rose `#9f1239 / #e11d48 / #881337`,
+  emerald `#065f46 / #10b981 / #064e3b`, lagoon `#155e75 / #06b6d4 /
+  #164e63`, mist `#64748b / #94a3b8 / #475569`, midnight
+  `#0f172a / #1e293b / #020617`).
 - **Board backgrounds**: curated Unsplash landscape gallery
   (server-side allowlisted); visible to the whole project, editable by
   admin/team only.
