@@ -52,12 +52,13 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | POST `/api/tickets/[id]/ai-review` | `write` | - | `{ suggestions }` | Gemini double-rotation (per-key model chain + `GEMINI_API_KEY_2` key chain; free-tier quota is per model AND per key); ANY final failure = 503 maintenance (safe) |
 | POST `/api/upload/presign` | `write` | `presignSchema` {projectId, fileName, contentType} | upload ticket `(201)` | **IMAGES ONLY** - `image/png|jpeg|gif|webp` else 400; Cloud-only S3-compatible: Cloudflare R2 via R2_* OR Backblaze B2 via B2_* (B2 wins when set); no creds = 503 `STORAGE_UNCONFIGURED` |
 | PUT `/api/upload/local` | signed | HMAC-signed URL only | - | Legacy local upload path (kept for old uploads; new uploads are cloud-only) |
-| GET `/api/files/[...key]` | `read` | - | streamed file | Validates ticket->project membership per request; legacy `.data/uploads` remain downloadable |
+| GET `/api/files/[...key]` | `read` | - | streamed file | Authorization derives from the key's own `tickets/<projectId>/` segment (project-level read), so DRAFT previews work before any ticket exists; an attachments match only enriches content type / filename; foreign-project keys are rejected; missing objects answer a calm 404 JSON; legacy `.data/uploads` remain downloadable |
+| DELETE `/api/files/[...]`-adjacent cleanup `POST /api/content/graphics/cleanup` | `read` (project) | {projectId, keys[<=50]} | {removed, considered} | Unreferenced in-project keys only (attachments `$in` + description/activity `$regex`); rate 15/min |
 | POST `/api/content/graphics/cleanup` | `read` (member) | {projectId, keys[<=50]} | `{ removed, considered }` | Draft-media garbage collector: deletes ONLY in-project keys (`tickets/<projectId>/...`) that NO ticket references (attachments / description / activity notes); referenced keys always survive; rate-limited 15/min |
 | GET `/api/users` | admin | - | `{ users }` | Admin console list |
 | POST `/api/users` | admin | `createUserByAdminSchema` {name, email, password, role} | `{ user }` | 409 duplicate email |
 
-| POST `/api/auth/login` | - | `loginSchema` {email, password} | `{ user }` + cookie | Rate limit 10/5min per IP+email → 429 |
+| POST `/api/auth/login` | - | `loginSchema` {email, password} | `{ user }` + cookie | Rate limit 10/5min per IP+email counting ONLY failed attempts (`assertLoginAllowed` read-only check + `recordLoginFailure` on 401 paths) → 401s then 429; successful logins never consume the window |
 | POST `/api/tickets` | `write` | `createTicketSchema` | `{ ticket }(201)` | Rate limit 30/min per user → 429 |
 | POST `/api/tickets/[id]/comments` | member | - | - | Rate limit 20/min per user → 429 |
 | POST `/api/tickets/[id]/review` | client | - | - | Rate limit 20/min per user → 429 |

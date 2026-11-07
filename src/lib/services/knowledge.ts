@@ -234,7 +234,8 @@ async function buildKnowledgeGraph(user: SessionUser): Promise<KnowledgeGraphDTO
         const row = memberScore.get(aid);
         if (row) row.assigned += 1;
       }
-      for (const q of t.questions ?? []) {
+      for (let qi = 0; qi < (t.questions ?? []).length; qi++) {
+        const q = (t.questions ?? [])[qi];
         questionsTotal += 1;
         const answered = (q.answers ?? []).length;
         summary.answersTotal += answered;
@@ -242,7 +243,9 @@ async function buildKnowledgeGraph(user: SessionUser): Promise<KnowledgeGraphDTO
         // Only UNANSWERED required questions become attention nodes - the
         // graph visualises friction, not every stored question.
         if ((q.required ?? false) && answered === 0) {
-          const qid = `question:${t._id.toString()}:${summary.questionsTotal}`;
+          // Key by the question INDEX inside its ticket - a running counter
+          // would collide when one ticket holds several unanswered questions.
+          const qid = `question:${t._id.toString()}:${qi}`;
           nodes.push({
             id: qid,
             kind: "question",

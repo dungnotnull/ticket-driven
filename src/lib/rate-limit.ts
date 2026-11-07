@@ -66,6 +66,37 @@ export function enforceRateLimit(
   }
 }
 
+/**
+ * Login-specific brake that only FAILED attempts count: legitimate
+ * users/batteries may log in repeatedly, brute-force attackers do not.
+ * Reads the failure bucket WITHOUT incrementing (fast path when clean).
+ */
+export function assertLoginAllowed(
+  request: Request,
+  identity?: string,
+): void {
+  const config = RATE_LIMITS.login;
+  const now = Date.now();
+  const key = `login:${clientKey(request)}:${identity ?? "*"}`;
+  const state = buckets.get(key);
+  if (state && state.resetAt > now && state.count >= config.limit) {
+    throw new ApiError(429, "Too many requests - please slow down and try again shortly.");
+  }
+}
+
+/** Records one FAILED login attempt into the failure-only bucket. */
+export function recordLoginFailure(request: Request, identity?: string): void {
+  const config = RATE_LIMITS.login;
+  const now = Date.now();
+  const key = `login:${clientKey(request)}:${identity ?? "*"}`;
+  const state = buckets.get(key);
+  if (!state || state.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + config.windowMs });
+    return;
+  }
+  state.count += 1;
+}
+
 /** Opportunistic cleanup so idle buckets do not grow the map forever. */
 export function pruneRateLimits(now = Date.now()): void {
   for (const [key, state] of buckets) {

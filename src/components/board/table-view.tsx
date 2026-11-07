@@ -206,7 +206,10 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
                       <span className="italic">{t("ticket.unassigned")}</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 align-middle text-[12px] text-muted">
+                  <td
+                    suppressHydrationWarning
+                    className="whitespace-nowrap px-4 py-2.5 align-middle text-[12px] text-muted"
+                  >
                     {timeAgo(ticket.updatedAt)}
                   </td>
                 </tr>

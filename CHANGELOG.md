@@ -6,6 +6,51 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 24 (production-readiness sweep: full e2e + full probe battery verified)
+
+- **Files route re-authorization (draft previews)**: `GET /api/files/<key>`
+  now derives project access from the KEY's own `tickets/<projectId>/`
+  segment (project-level `read`), so media previews work while the object is
+  still an ATTACHMENT DRAFT (editor image picked, ticket not yet saved);
+  an attachments match only ENRICHES the response (content type / filename).
+  Foreign-project keys cannot tunnel (24-hex project segment required) and
+  missing objects answer a calm 404 JSON (NoSuchKey/NotFound/404 caught).
+- **Login brake redesigned to count ONLY FAILURES**: `assertLoginAllowed`
+  (read-only bucket check, 429 when exhausted) + `recordLoginFailure`
+  (increment) - successful logins no longer consume the window, so normal
+  flows can never lock themselves out; the hammer test still proves
+  10 fresh 401s then 429 (run-unique identity in the probe).
+- **Knowledge graph duplicate-key bug FIXED**: question node ids used a
+  running counter that was never incremented during the build loop
+  (`summary.questionsTotal` was only recomputed AFTER the loop) - one ticket
+  holding several unanswered required questions produced COLLIDING node ids
+  and React "two children with the same key" console errors on /knowledge;
+  ids are now `question:<ticketId>:<questionIndex>`.
+- **Hydration-time noise silenced at the source**: the three SSR-rendered
+  relative-time surfaces (board card meta, table view updated column, home
+  project card) get `suppressHydrationWarning` - a minute boundary crossed
+  between SSR and hydration ("3m ago" -> "4m ago") used to log the (benign,
+  self-recovering) hydration-mismatch error.
+- **Probes brought to the live-B2 contract**: `probe_storage_cleanup.py`
+  re-worked DRIVER-AGNOSTIC (uploads via app presign+PUT, uses the REAL
+  returned keys including B2 uuid segments, existence oracle = auth-checked
+  GET 200+bytes vs 404) - the two key-mismatch runs that "passed for the
+  wrong reason" are gone; `probe_security_media.py` uses a REAL uploaded
+  orphan + run-unique hammer identity + self-deletes its probe project;
+  `probe_richtext.py` now proves the LIVE editor upload path
+  (image inserted, draft preview renders); `probe_modal_overflow.py` picks
+  cards by board index (relative-time immune); `probe_strip_pos.py` seeds
+  filler tickets so the root-clip assertion no longer depends on demo data.
+- **Final verification gate**: fresh reseed -> e2e **23/23** -> reseed ->
+  full ordered battery **15/15 exit 0, 0 console errors**
+  (final_prd, storage_cleanup 21/21, security_media 16/16, b2_live 20/20,
+  richtext, ui, quickset, modal_overflow, round15, gradients2, cache,
+  scrolllock_clean, strip_pos, wow, responsive) -> reseed; tsc 0 / eslint 0;
+  bucket `dymticket-upload` = **0 objects** after everything.
+- **Deploy checklist (user)**: add the real production origin to the B2
+  bucket CORS rule (`dymticket-presign` currently covers localhost), and
+  rotate the B2 application key after the session (it was shared in chat).
+
 ## 2026-11-07 - round 23 (hardening day: images-only, caps, sanitizer, rate limits, dialog media cleanup)
 
 - **Images-only uploads across the board**: `ALLOWED_ATTACHMENT_TYPES` dropped pdf - `presignSchema` now rejects pdf/video/anything but `png|jpeg|gif|webp` (400) for attachments AND editor/paste images; e2e-safe (fixture.png path unused pdf probe removed in favour of API-probe).

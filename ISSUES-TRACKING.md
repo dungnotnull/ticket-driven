@@ -18,7 +18,10 @@ this file tracks the STATE.
 | O-8 | Low | Scale | Client-side search/filter only (see `DEVELOPMENT-TRACKING-PROGRESS.md` LIMITATION) | Server-side search is a backlog item (FUTURE-IMPROVEMENT #1) | Backlog |
 | O-9 | Low | Tests | Touch/drag on real mobile devices is not probe-verified (desktop Playwright only) | Manual device check before release | Backlog |
 | O-10 | Low | Deps | create-next-app reports 8 moderate advisories (dev-time dependencies) | Low-priority audit review | Backlog |
-| O-11 | Info | QA | e2e A9 (comment appears in timeline) flaked ONCE (run 22/23, UI-settle timing; POST was 200). Re-run from clean state = green. NOTE: a suite run that DIES mid-flow leaves its `QA Test Project` behind and contaminates the NEXT run (A3/B1/B2 fail on counts) - reseed clears it | None (tracking note) | Monitoring |
+| O-11 | Info | QA | e2e A9 (comment appears in timeline) flaked ONCE (run 22/23, UI-settle timing; POST was 200). Re-run from clean state = green. NOTE: a suite run that DIES mid-flow leaves its `QA Test Project` behind and contaminates the NEXT run (A3/B1/B2 fail on counts) - reseed clears it, and probe_security_media now self-deletes its own project after its checks | None (tracking note) | Monitoring |
+| O-12 | Low | Dev tooling | Next's INCREMENTAL CACHE (.next/cache) can serve stale RSC pages in a long-lived dev server after source edits - console errors (like the fixed duplicate-key) appear "still present" though the code is fixed; a cache-busted URL or a fresh dev start settles it | Cache-bust / restart before diagnosing; production builds render fresh | Accepted (documented) |
+| O-13 | Info | Ops (deploy) | The B2 bucket CORS rule `dymticket-presign` currently allows only localhost:3000 origins - the REAL production origin must be added before the deployed app can upload | Add the deploy origin (s3_put/s3_get) to the bucket rule right after the domain is known | Pending (user deploy step) |
+| O-14 | Info | Ops (security) | The B2 application key secret was shared in chat during activation | Rotate the key after the session (create key v2, update .env.local, delete the old) | Pending (user step) |
 
 ## Resolved highlights (all verified after fix - details in IMPLEMENTATION-NOTES.md)
 

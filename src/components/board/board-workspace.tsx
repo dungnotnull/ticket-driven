@@ -863,7 +863,10 @@ function KanbanCard({
             {new Date(ticket.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
           </span>
         )}
-        <span className="ml-auto text-[10px] text-muted">{timeAgo(ticket.updatedAt)}</span>
+        {/* suppressHydrationWarning: relative minutes can cross a boundary
+            between SSR and hydration (e.g. "3m ago" -> "4m ago"); React just
+            re-renders - silence the (benign, rare) mismatch noise. */}
+        <span suppressHydrationWarning className="ml-auto text-[10px] text-muted">{timeAgo(ticket.updatedAt)}</span>
       </div>
 
       {assignee && (

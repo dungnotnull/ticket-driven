@@ -298,7 +298,7 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-muted">
+                    <span suppressHydrationWarning className="text-[11px] text-muted">
                       {t("home.updatedAgo")} {timeAgo(project.updatedAt)}
                     </span>
                   </div>

@@ -42,6 +42,7 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 | 2026-11-07, round 22 addendum | DONE | AI rotation hardening: per-key model chain + `GEMINI_API_KEY_2` key chain (double rotation, calm 503 only after everything); new working fallback key wired + rotation proven E2E | src/lib/services/ai-review.ts, .env.local (gitignored) |
 | 2026-11-07, round 23 | DONE | Security + media hardening (REQ-046): images-only uploads (pdf/video 400), max-5 caps (attachments + editor bodies), persistence sanitizer on every rich input, rate limits on 8 critical endpoints, orphan-cleanup endpoint + dialog close hooks, attachment thumbnails + lightbox, project-description rich text (edit dialog), comment Send busy-disable; probe_security_media 16/16 + storage 21/21 + e2e 23/23 | sanitize.ts, rate-limit.ts, content/graphics/cleanup route, validation.ts, rich-text.tsx, attachment-upload.tsx, image-preview.tsx, ticket-modal.tsx, project-edit-dialog.tsx |
 | 2026-11-07, round 23 addendum | DONE | Backblaze B2 activated with user-supplied credentials: bucket/region auto-discovered via native v3 API, bucket CORS auto-provisioned (dymticket-presign rule), probe_b2_live 19/19 (real presign PUT + auth-checked byte-identical GET + anonymous denied + referenced-kept + cascade-delete), bucket reads 0 objects after the full e2e; e2e A8 flipped to the live-upload contract (23/23) | .env.local (gitignored), .qa/probe_b2_live.py, e2e_kanban.py |
+| 2026-11-07, round 24 | DONE | Production-readiness sweep requested by the user ("test e2e everything, console 0, verify no break/infinite-loop, update MDs, then commit"): files route re-authorized by key segment (draft previews work pre-save, foreign projects blocked, calm 404s), login brake counts ONLY failed attempts (successes can never exhaust the window), knowledge-graph duplicate-key bug fixed (question ids by per-ticket index - running counter stayed 0 and collided on multi-question tickets), rare relative-time hydration noise suppressed at the 3 SSR surfaces, probe_richtext flipped to the LIVE-B2 upload contract, storage-cleanup/security probes made driver-Agnostic with REAL uploaded objects + run-unique hammer identities + self-cleanup, modal/strip probes de-flaked (index-based card pick, guaranteed column overflow). FINAL GATE: reseed -> e2e 23/23 -> reseed -> 15-probe ordered battery 15/15 exit 0 / 0 console errors -> reseed; tsc 0 / eslint 0; bucket back to 0 objects | api/files/[...key]/route.ts, rate-limit.ts, api/auth/login/route.ts, services/knowledge.ts, board-workspace.tsx, table-view.tsx, projects-view.tsx, TESTING.md, CHANGELOG.md, REQUIREMENT-LOG.md, .qa probes |
 
 ## LIMITATION (current, acknowledged)
 
@@ -57,7 +58,9 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
   deployment now RUNS on Backblaze B2 (verified live) while repo docs stay
   generic. NEW in round 23: uploads are IMAGES-ONLY (pdf/video rejected at the
   API gate) and capped (5 attachments / 5 editor images). Rate limits are
-  in-memory (single-instance scope, like the TTL cache).
+  in-memory (single-instance scope, like the TTL cache). ROUND 24: media
+  previews (draft attachments) work before a ticket exists - the file route
+  authorizes via the key's own project segment.
 - **AI review needs a Gemini key.** Without `GEMINI_API_KEY` the button shows
   the maintenance toast (by design, zero breakage).
 - **Reseed wipes user edits.** `npm run seed -- --force` resets demo data
