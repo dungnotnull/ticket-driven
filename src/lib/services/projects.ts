@@ -195,9 +195,11 @@ export async function addProjectMember(
   const target = await UserModel.findOne({
     email: input.email.toLowerCase().trim(),
   }).lean();
-  if (!target) throw new ApiError(404, "No account found with that email.");
+  if (!target) {
+    throw new ApiError(404, "No account found with that email.", "USER_NOT_FOUND");
+  }
   if (project.members.some((m) => m.userId?.toString() === target._id.toString())) {
-    throw new ApiError(409, "That user is already a project member.");
+    throw new ApiError(409, "That user is already a project member.", "MEMBER_ALREADY");
   }
   await ProjectModel.updateOne(
     { _id: project._id },

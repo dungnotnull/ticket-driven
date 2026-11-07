@@ -16,6 +16,8 @@ export type ApiErrorCode =
   | "AI_MAINTENANCE"
   | "PROJECT_NAME_TAKEN"
   | "TICKET_NAME_TAKEN"
+  | "MEMBER_ALREADY"
+  | "USER_NOT_FOUND"
   | "INTERNAL";
 
 const DEFAULT_CODE: Record<number, ApiErrorCode> = {

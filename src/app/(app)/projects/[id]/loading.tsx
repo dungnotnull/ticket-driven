@@ -1,15 +1,27 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoaderBar, Skeleton } from "@/components/ui/skeleton";
 
-/** Board-agnostic project loading skeleton: 4 columns of card placeholders. */
+/** Board-agnostic project loading skeleton: progress strip + 4 columns. */
 export default function ProjectLoading() {
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col gap-5 p-4 sm:p-5" data-testid="board-skeleton">
+    <div
+      className="flex min-h-[calc(100dvh-3.5rem)] flex-col gap-5 p-4 sm:p-5"
+      data-testid="board-skeleton"
+      aria-busy="true"
+      aria-label="Loading board"
+    >
+      <LoaderBar />
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-72" />
         </div>
-        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-9 w-40 rounded-xl" />
+      </div>
+      {/* overview progress strip placeholder */}
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+        <Skeleton className="h-6 w-12 rounded-full" />
+        <Skeleton className="h-2.5 flex-1 rounded-full" />
+        <Skeleton className="h-4 w-32" />
       </div>
       <div className="grid grid-flow-col auto-cols-[300px] gap-4 overflow-hidden pb-6">
         {Array.from({ length: 4 }).map((_, columnIndex) => (

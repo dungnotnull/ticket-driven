@@ -34,7 +34,7 @@ Server Actions (`src/app/actions/**`). Source of truth for payloads is
 | GET `/api/projects/[id]` | `read` | - | `{ project }` | Detail incl. populated members |
 | PATCH `/api/projects/[id]` | `write` | `updateProjectSchema` {name?, description?, backgroundUrl?, gradientKey?, defaultQuestions? (null clears)} | `{ project }` | gradientKey allowlisted (`""`normalizes to null); defaultQuestions max 5 templates; rename onto another project's name -> 409 `PROJECT_NAME_TAKEN` (own-name rename = no-op) |
 | DELETE `/api/projects/[id]` | `manage` | - | `{ ok: true }` | Removes project + its tickets + **best-effort storage cleanup of every media key those tickets referenced** |
-| POST `/api/projects/[id]/members` | `manage` | `addMemberSchema` {email, role} | member | 409 unknown/dupe email |
+| POST `/api/projects/[id]/members` | `manage` | `addMemberSchema` {email, role} | member | Unknown email -> 404 `code: USER_NOT_FOUND`; already a member -> 409 `code: MEMBER_ALREADY` |
 | PATCH `/api/projects/[id]/members` | `manage` | `updateMemberSchema` {userId, role} | member | |
 | DELETE `/api/projects/[id]/members` | `manage` | `removeMemberSchema` {userId} | `{ ok: true }` | |
 | GET `/api/tickets?projectId=&assignee=&status=` | `read` | query param `projectId` required | `{ tickets }` | statuses: todo/in_progress/in_review/done |

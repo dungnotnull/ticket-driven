@@ -492,6 +492,8 @@ export const DICT = {
   "api.aiMaintenance": { en: "AI review is temporarily unavailable.", ja: "AIレビューは現在一時的に利用できません。" },
   "api.projectNameTaken": { en: "That project name is already used by another project.", ja: "そのプロジェクト名は他のプロジェクトで既に使用されています。" },
   "api.ticketNameTaken": { en: "That ticket title already exists in this project.", ja: "このプロジェクトに同じタイトルのチケットが既に存在します。" },
+  "api.memberAlready": { en: "That member is already in this project.", ja: "そのメンバーは既にこのプロジェクトに参加しています。" },
+  "api.userNotFound": { en: "No account with that email exists - ask them to register first.", ja: "そのメールアドレスのアカウントはまだありません。先に登録してもらいましょう。" },
   "api.internal": { en: "Something went wrong on our side. Try again.", ja: "内部エラーが発生しました。もう一度お試しください。" },
 } as const;
 
@@ -509,6 +511,8 @@ const API_CODE_KEY: Record<string, string> = {
   AI_MAINTENANCE: "api.aiMaintenance",
   PROJECT_NAME_TAKEN: "api.projectNameTaken",
   TICKET_NAME_TAKEN: "api.ticketNameTaken",
+  MEMBER_ALREADY: "api.memberAlready",
+  USER_NOT_FOUND: "api.userNotFound",
   INTERNAL: "api.internal",
 };
 

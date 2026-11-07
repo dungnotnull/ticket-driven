@@ -6,6 +6,30 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 26 (duplicate-member guard, modern loading language)
+
+- **Duplicate-member rule**: adding an email that is ALREADY a member of the
+  same project fails 409 `MEMBER_ALREADY` and toasts in the ACTIVE language
+  ("That member is already in this project." / EN-locale message localized
+  via the code pipeline); an unknown email answers 404 `USER_NOT_FOUND`
+  ("ask them to register first", localized). The SAME email keeps working in
+  a DIFFERENT project, and the members-dialog flow is unchanged otherwise.
+  Verified by `probe_member_unique.py` (12 checks: first add 201, re-add
+  409+code, unknown 404+code, cross-project reuse, self-cleanup).
+- **Modern loading language**: a shared brand shimmer (`.skeleton` gradient
+  sweep, static under reduced motion) + a slim indigo `LoaderBar` now top
+  every route loading tree - dashboard (gradient banner, cards, search),
+  board (columns + progress strip), analytics, knowledge, admin and the
+  shell fallback all mirror their real layouts instead of gray pulses.
+- **New default loader**: the root first-paint loader is now the Uiverse.io
+  hamster wheel (`HamsterLoader` component; exact CSS ported with reduced
+  motion stops). SSR documents verified to ship it; segment loading trees
+  verified shipping via RSC payloads and the painted shimmer/bar caught
+  under a throttled flight (`probe_loading_ui.py`, 8 checks).
+- Round-26 final gate: e2e **23/23** -> probe battery **19/19 exit 0, 0
+  console errors** (adds member_unique 12/12 + loading_ui 8/8) -> reseed;
+  tsc 0 / eslint 0.
+
 ## 2026-11-07 - round 25 (localized API toasts, duplicate-name rules, final battery re-verified)
 
 - **Localization of every API error/success toast**: every `ApiError` now
