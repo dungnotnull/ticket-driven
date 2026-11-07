@@ -9,6 +9,10 @@ import type { SessionUser } from "@/lib/auth";
 import type { CreateProjectInput } from "@/lib/validation";
 import { connectDB } from "@/lib/db";
 import { isAllowedBackgroundUrl } from "@/lib/background-gallery";
+import {
+  collectTicketStorageKeys,
+  deleteStorageObjects,
+} from "@/lib/storage-cleanup";
 
 const MEMBER_POPULATE = { path: "members.userId", select: "name email globalRole" } as const;
 
@@ -136,8 +140,19 @@ export async function deleteProject(
   user: SessionUser,
 ): Promise<void> {
   const { project } = await getProjectAccess(projectId, "manage", user);
+  // Media hygiene: gather every storage key referenced by ANY ticket of the
+  // project (attachments + description/comment/review-note images) so none
+  // of them orphan on the free tier after the cascade delete.
+  const tickets = (await TicketModel.find({ projectId: project._id })
+    .select("attachments description activity.note")
+    .lean()) as unknown as Parameters<typeof collectTicketStorageKeys>[0][];
+  const storageKeys = [
+    ...new Set(tickets.flatMap((ticket) => collectTicketStorageKeys(ticket))),
+  ];
   await TicketModel.deleteMany({ projectId: project._id });
   await ProjectModel.deleteOne({ _id: project._id });
+  // Best-effort cleanup - never blocks or fails the deletion itself.
+  await deleteStorageObjects(storageKeys);
 }
 
 export async function addProjectMember(

@@ -18,6 +18,7 @@ this file tracks the STATE.
 | O-8 | Low | Scale | Client-side search/filter only (see `DEVELOPMENT-TRACKING-PROGRESS.md` LIMITATION) | Server-side search is a backlog item (FUTURE-IMPROVEMENT #1) | Backlog |
 | O-9 | Low | Tests | Touch/drag on real mobile devices is not probe-verified (desktop Playwright only) | Manual device check before release | Backlog |
 | O-10 | Low | Deps | create-next-app reports 8 moderate advisories (dev-time dependencies) | Low-priority audit review | Backlog |
+| O-11 | Info | QA | e2e A9 (comment appears in timeline) flaked ONCE (run 22/23, UI-settle timing; POST was 200). Re-run from clean state = green. NOTE: a suite run that DIES mid-flow leaves its `QA Test Project` behind and contaminates the NEXT run (A3/B1/B2 fail on counts) - reseed clears it | None (tracking note) | Monitoring |
 
 ## Resolved highlights (all verified after fix - details in IMPLEMENTATION-NOTES.md)
 

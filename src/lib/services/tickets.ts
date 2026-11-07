@@ -7,6 +7,12 @@ import { ApiError, badRequest, notFound } from "@/lib/api";
 import { getProjectAccess } from "@/lib/rbac";
 import type { SessionUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import {
+  collectTicketStorageKeys,
+  deleteStorageObjects,
+  extractFileKeysFromHtml,
+  removedKeys,
+} from "@/lib/storage-cleanup";
 import type {
   AnswerQuestionInput,
   CommentInput,
@@ -233,6 +239,9 @@ export async function updateTicket(
   const now = new Date();
   const entries: ActivityEntry[] = [];
   const truncate = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n)}…` : s);
+  /** Keys dropped by this update -> cleaned AFTER the write succeeds. */
+  let removedDescriptionMedia: string[] = [];
+  let removedAttachmentMedia: string[] = [];
 
   // Granular change log: every meaningful field change gets its own entry.
   if (input.title !== undefined && input.title !== ticket.title) {
@@ -250,6 +259,12 @@ export async function updateTicket(
       note: "updated the description",
       createdAt: now,
     });
+    // Media hygiene: images dropped from the description during this edit
+    // become orphans unless another part of the ticket still shows them.
+    removedDescriptionMedia = removedKeys(
+      extractFileKeysFromHtml(ticket.description),
+      extractFileKeysFromHtml(input.description),
+    );
   }
   if (input.priority !== undefined && input.priority !== ticket.priority) {
     const oldPriority: Priority = ["low", "medium", "high", "urgent"].includes(ticket.priority ?? "")
@@ -343,6 +358,15 @@ export async function updateTicket(
         });
       }
     }
+    // Media hygiene: keys absent from the replacement list become orphans -
+    // UNLESS the same image is still embedded somewhere else on the ticket
+    // (description text or an older comment/review note).
+    const stillReferenced = new Set(collectTicketStorageKeys(ticket).filter(
+      (key) => !existing.some((a) => a.key === key),
+    ));
+    removedAttachmentMedia = existing
+      .map((a) => a.key)
+      .filter((key) => !nextKeys.has(key) && !stillReferenced.has(key));
     set.attachments = attachmentRecords;
   }
 
@@ -356,6 +380,10 @@ export async function updateTicket(
   const updated = (await TicketModel.findByIdAndUpdate(ticket._id, update, {
     returnDocument: "after",
   }).lean()) as unknown as LeanTicket;
+  // Best-effort media cleanup AFTER the write succeeded - failures here are
+  // logged, never propagated to the client.
+  const cleanupKeys = [...removedDescriptionMedia, ...removedAttachmentMedia];
+  if (cleanupKeys.length > 0) await deleteStorageObjects(cleanupKeys);
   return serializeTicket(updated);
 }
 
@@ -530,7 +558,13 @@ export async function deleteTicket(
   await connectDB();
   const ticket = await getTicketOrThrow(ticketId);
   await getProjectAccess(ticket.projectId.toString(), "write", user);
+  // Media hygiene: collect every storage key this ticket referenced
+  // (attachments + description/comment/review-note images) BEFORE the
+  // document disappears so the objects never orphan on the free tier.
+  const storageKeys = collectTicketStorageKeys(ticket);
   await TicketModel.deleteOne({ _id: ticket._id });
+  // Best-effort cleanup - never blocks or fails the deletion itself.
+  await deleteStorageObjects(storageKeys);
 }
 
 /* --------------------- client verification questions --------------------- */

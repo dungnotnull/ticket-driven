@@ -25,6 +25,33 @@ calendar dates. Status of every line: DONE + probe-verified.
 - tsc 0 / eslint 0; e2e 23/23 (A8 storage-safety unchanged); AI live probe
   in `.qa/probe_ai_live.py`.
 
+## 2026-11-07 - round 22 (media cleanup lifecycle)
+
+### Added
+- STORAGE HYGIENE layer (`src/lib/storage-cleanup.ts`): uploaded objects
+  never orphan anymore. Ticket deletion collects EVERY media key the
+  ticket referenced - attachments, description images, comment images,
+  review-note images - and deletes the objects; description edits and
+  attachment full-replacements clean only the media they dropped; project
+  deletion cascades the same cleanup across ALL tickets of the project.
+  Keys still visible elsewhere on the ticket are preserved.
+
+### Changed
+- Cloud mode deletes objects through the active driver (S3
+  DeleteObject); no-driver mode unlinks the matching legacy files under
+  `.data/uploads`. Cleanup is best-effort: individual object failures are
+  logged (`[storage] ...`) and NEVER break the outer flow - every route
+  still returns the same response shape.
+
+### Verified
+- NEW `.qa/probe_storage_cleanup.py` (21 checks, 0 console errors):
+  REAL disk-level deletion evidence (legacy local files actually
+  disappear) across edit-diff / attachment-replace / ticket-delete /
+  project-delete-cascade + no orphans left; server log shows the
+  matching `[storage] removed N/N` lines. tsc 0 / eslint 0; e2e 23/23
+  (one A9 comment-timeline flake in a first run; green from clean state,
+  logged in ISSUES-TRACKING); reseeded after.
+
 ## 2026-11-07 - round 21 (dual-key rotation + key 2 verdict)
 
 ### Added
