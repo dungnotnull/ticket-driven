@@ -35,6 +35,7 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 | 2026-11-07, git round | DONE | Standalone git init in kanban-app (branch main) + remote origin github.com/dungnotnull/ticket-driven; staging safety verified (no .env.local/.data/node_modules); pushed 141 files onto the LICENSE commit after rebase | .gitignore, all project files |
 | 2026-11-07, round 18 | DONE | 5 more card-header gradient presets (6 -> 11: rose/emerald/lagoon/mist/midnight) with EN/JA picker names; probe_gradients2.py 11/11 + full e2e 23/23; commit + push to GitHub main | lib/gradients.ts, globals.css, dictionary.ts, .qa/probe_gradients2.py |
 
+| 2026-11-07, round 19 | DONE | Backblaze B2 added as second S3-compatible storage provider (shared client builder; file route streams via it) + Gemini key wired with cheap lite models (gemini-3.1-flash-lite / -3.5-flash-lite) and verified LIVE end-to-end (probe_ai_live: score + suggestions, 0 console errors) | storage.ts, api/files route, .env.example, probe_ai_live.py |
 ## LIMITATION (current, acknowledged)
 
 - **Search & filtering are client-side.** Home search and the board

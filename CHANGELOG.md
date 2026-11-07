@@ -6,6 +6,24 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-07 - round 19 (storage choice: B2 + live AI)
+
+### Added
+- Backblaze B2 as a SECOND S3-compatible storage provider: generic driver
+  layer (`getStorageDriver` -> `s3ClientFor`), R2 kept as-is, B2 enabled by
+  `B2_KEY_ID` / `B2_APPLICATION_KEY` / `B2_BUCKET` (+ `B2_REGION`, default
+  us-west-004, `B2_PUBLIC_BASE`); the file-serving route streams through
+  the same client - free tier is 10 GB storage + 1 GB/day downloads and
+  the signup needs no credit card (ideal for this small project).
+- Live Gemini AI review verified END-TO-END with a real key: cheap lite
+  models (`gemini-3.1-flash-lite` - and `gemini-3.5-flash-lite`) validated
+  via the models list AND live generateContent; full ticket review UI
+  probe (`probe_ai_live.py`) PASS - real score + 5 suggestions rendered,
+  0 console errors, maintenance path untouched as fallback.
+
+### Verified
+- tsc 0 / eslint 0; e2e 23/23 (A8 storage-safety unchanged); AI live probe
+  in `.qa/probe_ai_live.py`.
 ## 2026-11-07 - round 18 (richer gradient palette + first GitHub push)
 
 ### Added

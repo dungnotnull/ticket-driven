@@ -31,8 +31,8 @@ questions and track progress - nothing else.
 | Rich text | Tiptap-based editors (comments + ticket description, images-only upload) |
 | Analytics | Recharts (server-computed from real data) |
 | Knowledge brain | d3-force graph + explainable health score |
-| AI | Gemini (`gemini-2.0-flash` default) - read-only suggestions, safe-to-fail |
-| Storage | Cloudflare R2 presigned PUTs (cloud-only); no credentials = designed 503 toast |
+| AI | Gemini (cheap lite models supported via `GEMINI_MODEL`, e.g. `gemini-3.1-flash-lite`) - read-only suggestions, safe-to-fail |
+| Storage | S3-compatible presigned PUTs, cloud-only: Cloudflare R2 OR Backblaze B2 (free tier 10 GB + 1 GB/day, no credit card); no credentials = designed 503 toast |
 | i18n | EN/JA dictionary (`src/lib/i18n`), chrome text only, localStorage + `dymticket_lang` cookie |
 | Caching | In-process TTL read-through (`src/lib/cache.ts`, 2-5 min, per-user keys) + Mongoose middleware invalidation |
 | Validation | Zod on every server boundary (routes, actions, service sanitize) |

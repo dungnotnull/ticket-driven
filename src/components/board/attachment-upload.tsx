@@ -37,7 +37,7 @@ interface AttachmentUploadProps {
   disabled?: boolean;
 }
 
-/** Presigned direct-to-R2 upload flow (falls back to signed local dev driver). */
+/** Presigned direct-to-cloud upload flow (S3-compatible: R2 or Backblaze B2). */
 export function AttachmentUpload({ projectId, drafts, onChange, disabled }: AttachmentUploadProps) {
   void drafts;
   const { t } = useLang();

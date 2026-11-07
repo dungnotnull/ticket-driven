@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import { Readable } from "node:stream";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { TicketModel } from "@/lib/models";
 import { requireSessionUser } from "@/lib/auth";
 import { getProjectAccess } from "@/lib/rbac";
-import { getStorageDriver, safeLocalPath } from "@/lib/storage";
+import { getStorageDriver, safeLocalPath, s3ClientFor, storageBucket } from "@/lib/storage";
 import { route } from "@/lib/api";
 
 type RouteParams = { params: Promise<{ key: string[] }> };
@@ -52,17 +52,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
       "Cache-Control": "private, max-age=300",
     });
 
-    if (getStorageDriver() === "r2") {
-      const client = new S3Client({
-        region: "auto",
-        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-        },
-      });
+    const driver = getStorageDriver();
+    if (driver) {
+      const client = s3ClientFor(driver);
       const object = await client.send(
-        new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }),
+        new GetObjectCommand({ Bucket: storageBucket(driver), Key: key }),
       );
       if (!object.Body) {
         return Response.json({ error: "Not found." }, { status: 404 });

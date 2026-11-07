@@ -11,7 +11,7 @@ this file tracks the STATE.
 | O-1 | Low | Dev tooling | `npm install` on this machine requires `--include=dev` (user `~/.npmrc` sets `omit=dev`) - forgetting it breaks `tsc`/`eslint` | Always install with `--include=dev`; documented in README/CLAUDE | Accepted (documented) |
 | O-2 | Low | Dev tooling | Mongoose model cache pins schemas until restart - editing `models.ts` needs a dev-server restart + reseed | Restart ritual documented; probes reseed automatically | Accepted (documented) |
 | O-3 | Low | Dev tooling | Turbopack may serve stale CSS for newly added arbitrary utilities - a just-added `shadow-[...]`/`@utility` can look "missing" until restart | Restart dev server after `globals.css` edits; verify computed styles | Accepted (documented) |
-| O-4 | Info | Ops | Uploads are cloud-only: without `R2_*` credentials attachments are disabled (designed 503 toast) | Set R2 credentials for real deployments | By design |
+| O-4 | Info | Ops | Uploads are cloud-only: without R2_* OR B2_* credentials attachments are disabled (designed 503 toast) | Set Cloudflare R2 creds, OR the Backblaze B2 free-tier trio (10 GB storage + 1 GB/day downloads, no credit card required) | By design |
 | O-5 | Info | Ops | AI review needs `GEMINI_API_KEY`; absent key = calm maintenance toast only | Add key to enable; failure path is safe-to-fail | By design |
 | O-6 | Low | Data | `npm run seed -- --force` resets demo data and changes IDs (any manually created demo content is wiped) | Reseed only before/after probe runs; note it in summaries | Accepted |
 | O-7 | Info | Windows | Orca-injected git env vars (`GIT_CONFIG_COUNT` with missing keys) break plain `git` in some shells | Run git with `GIT_CONFIG_COUNT=0` or fix the injected pair | External (Orca) |
