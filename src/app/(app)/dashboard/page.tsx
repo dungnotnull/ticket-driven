@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { listProjectsForUser } from "@/lib/services/projects";
 import { ProjectsView } from "@/components/dashboard/projects-view";
+import { ConsoleBanner } from "@/components/ui/console-banner";
 
 export const metadata: Metadata = {
   title: "Projects",
@@ -18,6 +19,9 @@ export default async function DashboardPage() {
   const projects = await listProjectsForUser(user);
   const canCreate = user.globalRole !== "client";
   return (
-    <ProjectsView projects={projects} canCreate={canCreate} role={user.globalRole} />
+    <>
+      <ConsoleBanner />
+      <ProjectsView projects={projects} canCreate={canCreate} role={user.globalRole} />
+    </>
   );
 }

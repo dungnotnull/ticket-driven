@@ -6,6 +6,19 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-08 - round 27 (console easter egg "Dev by Hoang Dung")
+
+- **Console banner on the home page**: opening the browser console on the
+  home page now prints the figlet "Dev by Hoang Dung" ASCII art in indigo.
+  Implemented as a client-only `ConsoleBanner` mounted on the dashboard home
+  (effect-based, SSR-silent, hydration-identical). The art is generated with
+  pyfiglet (standard font) and embedded as a JSON-escaped string so the
+  backticks/backslashes inside the glyphs survive exactly - the pasted art's
+  mangled line breaks are fixed into the true single-block figlet.
+- Verified by `probe_console_banner.py` (6/6): prints on home, art shape
+  asserted, silent on /analytics, reprints on a fresh home mount, 0 console
+  errors. Gate: tsc 0 / eslint 0 -> e2e 23/23.
+
 ## 2026-11-07 - round 26 (duplicate-member guard, modern loading language)
 
 - **Duplicate-member rule**: adding an email that is ALREADY a member of the

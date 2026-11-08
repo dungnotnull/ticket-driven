@@ -59,6 +59,7 @@ the dev server must be running on `http://localhost:3000` first).
 | `probe_toast_locale.py` | round-25 locale contract: duplicate-project error renders the JA wording when the UI language is `ja` and the EN wording when `en` (real create-dialog flow both passes) |
 | `probe_member_unique.py` (12) | round-26 member rules: first add 201; re-adding the SAME email to the SAME project -> 409 `MEMBER_ALREADY`; unknown email -> 404 `USER_NOT_FOUND`; the SAME email in a DIFFERENT project -> allowed; throwaway probe project self-cleans |
 | `probe_loading_ui.py` (8) | round-26 loading language: every client navigation's RSC flight ships its route's loading-tree marker (analytics/knowledge/board); the painted fallback (brand shimmer + loader bar) is caught under a 5s-throttled flight; `skeleton-sweep` keyframes + `.loader-bar` rule registered in document CSS |
+| `probe_console_banner.py` (6) | round-27 console easter egg: the home page prints the figlet "Dev by Hoang Dung" banner in the browser console; NOT printed on /analytics; reprints on a fresh home mount; 0 console errors (React Strict Mode dev double-effect tolerated by design - prints once in production) |
 | `probe_roles_questions.py` / `probe_text_options.py` / `probe_round10.py` / `probe_hydration.py` | feature-era regression guards |
 | `probe_cache.py` also asserts | the DESIGNED 503 (AI without key) logs exactly one resource line - the only accepted console entry |
 
@@ -123,6 +124,8 @@ npm run lint
 - Round 26: e2e 23/23 -> battery **19/19 exit 0, 0 console errors**
   (adds member_unique 12/12 + loading_ui 8/8) -> reseed; tsc 0 / eslint 0;
   root loading fallback (hamster wheel) verified present in SSR documents.
+- Round 27: tsc 0 / eslint 0 -> e2e **23/23**; console-banner probe **6/6**
+  (home prints the "Dev by Hoang Dung" figlet, other routes stay silent).
 - `tsc --noEmit` 0, `eslint src` 0.
 - Backblaze bucket count after everything: **0 objects** (probe artifacts and
   probe projects fully cleaned; media lifecycle leaves no residue).
