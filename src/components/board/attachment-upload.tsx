@@ -46,13 +46,17 @@ interface AttachmentUploadProps {
   maxCount?: number;
   /** Fires for every DONE upload of this session (orphan cleanup on cancel). */
   onUploadedKey?: (key: string) => void;
+  /** Read-only view (e.g. client role): no picker, no remove - just the
+   * thumbnail list with click-to-zoom so EVERY role can inspect the files. */
+  readOnly?: boolean;
 }
 
 /**
  * Presigned direct-to-cloud upload flow (S3-compatible: R2 or Backblaze B2).
  * IMAGES ONLY (pdf/video/etc. are rejected client- AND server-side), up to
  * `maxCount` files, thumbnail list with remove buttons and a click-to-zoom
- * lightbox for finished images.
+ * lightbox for finished images. `readOnly` renders the same list without any
+ * mutating control - used for client-role viewers of existing attachments.
  */
 export function AttachmentUpload({
   projectId,
@@ -61,6 +65,7 @@ export function AttachmentUpload({
   disabled,
   maxCount = MAX_TOTAL_ATTACHMENTS,
   onUploadedKey,
+  readOnly = false,
 }: AttachmentUploadProps) {
   const { t } = useLang();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -191,28 +196,32 @@ export function AttachmentUpload({
 
   return (
     <div className="flex flex-col gap-2">
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={Array.from(ALLOWED_ATTACHMENT_TYPES).join(",")}
-        className="hidden"
-        onChange={pickFiles}
-        disabled={disabled || busy}
-      />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled || busy || remainingSlots <= 0}
-        className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border-strong px-3 py-2 text-[13px] text-muted transition-colors hover:border-primary/60 hover:text-foreground disabled:opacity-50"
-        data-testid="attach-file"
-      >
-        {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Paperclip size={14} />}
-        {busy ? t("att.uploading") : t("att.button")}
-        {remainingSlots > 0 ? null : (
-          <span className="text-[11px] text-danger">{t("att.limitCount", { max: maxCount })}</span>
-        )}
-      </button>
+      {!readOnly && (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={Array.from(ALLOWED_ATTACHMENT_TYPES).join(",")}
+            className="hidden"
+            onChange={pickFiles}
+            disabled={disabled || busy}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled || busy || remainingSlots <= 0}
+            className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border-strong px-3 py-2 text-[13px] text-muted transition-colors hover:border-primary/60 hover:text-foreground disabled:opacity-50"
+            data-testid="attach-file"
+          >
+            {busy ? <LoaderCircle size={14} className="animate-spin" /> : <Paperclip size={14} />}
+            {busy ? t("att.uploading") : t("att.button")}
+            {remainingSlots > 0 ? null : (
+              <span className="text-[11px] text-danger">{t("att.limitCount", { max: maxCount })}</span>
+            )}
+          </button>
+        </>
+      )}
 
       {drafts.length > 0 && renderDraftList()}
 
@@ -275,18 +284,20 @@ export function AttachmentUpload({
               ) : (
                 <Check size={13} className={cn("shrink-0", draft.status === "done" ? "text-done" : "text-danger")} />
               )}
-              <button
-                type="button"
-                aria-label={t("att.removeNamed", { name: draft.name })}
-                disabled={draft.status === "uploading"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeDraft(index);
-                }}
-                className="shrink-0 rounded p-0.5 text-muted transition-colors hover:text-danger disabled:opacity-40"
-              >
-                <X size={13} />
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  aria-label={t("att.removeNamed", { name: draft.name })}
+                  disabled={draft.status === "uploading"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeDraft(index);
+                  }}
+                  className="shrink-0 rounded p-0.5 text-muted transition-colors hover:text-danger disabled:opacity-40"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </li>
           );
         })}

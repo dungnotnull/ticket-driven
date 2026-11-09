@@ -266,8 +266,10 @@ export function TicketModal({
               The row is locked to the container via `grid-rows minmax(0,1fr)`
               - an implicit `auto` row would grow with the tallest column's
               content and push the whole dialog into an outer scroll with a
-              blank tail on long-timeline tickets. */}
-          <div className="grid gap-0 md:h-[78vh] md:grid-cols-[1.5fr_1fr] md:grid-rows-[minmax(0,1fr)]">
+              blank tail on long-timeline tickets. RIGHT/BY-USER DECISION:
+              the review (client questions / feedback) side is the heavier
+              surface and takes 60% of the form. */}
+          <div className="grid gap-0 md:h-[78vh] md:grid-cols-[1fr_1.5fr] md:grid-rows-[minmax(0,1fr)]">
             {/* Left: fields - its own smooth scroll so the right column never shifts it */}
             <form
               onSubmit={handleSave}
@@ -377,13 +379,17 @@ export function TicketModal({
                 </div>
               </div>
 
-              {canWrite && (
+              {/* Attachments are visible to EVERY role: admins/team edit the
+                  list, clients get a read-only thumbnail view (round-31: the
+                  client was previously locked out of admin-uploaded files. */}
+              {(canWrite || drafts.length > 0) && (
                 <div className="flex flex-col gap-1.5">
                   <Label>{t("ticket.attachments")}</Label>
                   <AttachmentUpload
                     projectId={project.id}
                     drafts={drafts}
                     disabled={busy}
+                    readOnly={!canWrite}
                     onUploadedKey={(key) => sessionMediaRef.current.push(key)}
                     onChange={(updater) => {
                       setDrafts((prev) => updater(prev));
