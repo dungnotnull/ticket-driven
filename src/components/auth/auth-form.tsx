@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Check, LoaderCircle, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ interface AuthFormProps {
 const HIGHLIGHTS: DictKey[] = ["auth.highlight1", "auth.highlight2", "auth.highlight3"];
 
 export function AuthForm({ mode }: AuthFormProps) {
-  const router = useRouter();
   const { t } = useLang();
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
@@ -46,8 +45,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         json: isRegister ? { name: cleanName, email: cleanEmail, password } : { email: cleanEmail, password },
       });
       toast.success(isRegister ? t("auth.toastRegistered") : t("auth.toastWelcomed"));
-      router.push(next);
-      router.refresh();
+      // Full-document navigation on purpose: a fresh login's Set-Cookie is
+      // guaranteed to be attached to the very first /dashboard request. A
+      // client-router flight can occasionally out-run the browser's cookie
+      // jar and get bounced to /login by the edge/session check.
+      window.location.assign(next);
     } catch (err) {
       const message = err instanceof Error ? err.message : t("auth.errorGeneric");
       setError(message);

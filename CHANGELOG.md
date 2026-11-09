@@ -6,6 +6,22 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
+## 2026-11-09 - round 28 (production-login hardening)
+
+- **Login no longer races the session cookie**: after a successful login
+  (or register), the auth form now performs a full-document navigation to
+  the next page (`window.location.assign`) instead of a client-router
+  push + refresh. The freshly set `kanban_session` cookie is therefore
+  guaranteed to be attached to the very first `/dashboard` request,
+  eliminating the edge-case where a client-side RSC flight could out-run
+  the browser's cookie jar and bounce the user back to `/login`.
+- Diagnosed against the live Vercel deployment (not guessed): requests-
+  level chain `login -> GET /dashboard` = 200 with the fresh cookie, and
+  12/13 real-browser runs land on the dashboard with the session cookie
+  present on every flight - the bounce was a client-side race class /
+  user-side stale cookie, now closed by the atomic navigation.
+- Gate: tsc 0 / eslint 0 -> e2e **23/23**; console-banner probe 6/6.
+
 ## 2026-11-08 - round 27 (console easter egg "Dev by Hoang Dung")
 
 - **Console banner on the home page**: opening the browser console on the
