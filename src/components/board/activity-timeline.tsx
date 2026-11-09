@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   CircleAlert,
   CheckCircle2,
@@ -187,9 +187,13 @@ function HeartButton({
   const [count, setCount] = useState(initialCount);
   const [mine, setMine] = useState(initialMine);
   const [busy, setBusy] = useState(false);
+  /** Round-35b spam guard: synchronous, batch-proof lock - React state
+   * would lag behind two clicks in the same tick. */
+  const busyRef = useRef(false);
 
   async function toggle() {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     const nextMine = !mine;
     setMine(nextMine);
@@ -207,6 +211,7 @@ function HeartButton({
       setCount((c) => Math.max(0, c + (nextMine ? -1 : 1)));
       toast.error(nextMine ? t("heart.failAdd") : t("heart.failRemove"));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -218,12 +223,14 @@ function HeartButton({
         data-testid="heart-button"
         data-mine={mine ? "true" : "false"}
         disabled={busy}
+        aria-busy={busy}
         onClick={toggle}
         aria-label={mine ? t("heart.remove") : t("heart.add")}
         aria-pressed={mine}
         title={mine ? t("heart.remove") : t("heart.add")}
         className={cn(
-          "press flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] transition-colors",
+          "press flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] transition-all",
+          busy && "cursor-wait opacity-60",
           mine
             ? "bg-danger/10 text-danger"
             : "text-muted hover:bg-surface-2 hover:text-danger",
