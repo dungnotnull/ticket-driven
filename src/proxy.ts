@@ -29,7 +29,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  // Authenticated documents must NEVER be edge-cached cross-user: the bare
+  // Next default is `public, max-age=0, must-revalidate` WITHOUT `Vary:
+  // Cookie`, so a render made for a signed-out visitor (the layout's
+  // redirect-to-login shell) can be poisoned into the shared edge cache and
+  // served to signed-in users as a 200 containing that meta redirect.
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
 
 export const config = {
