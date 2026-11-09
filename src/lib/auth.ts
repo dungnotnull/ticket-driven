@@ -1,5 +1,6 @@
 import { compare, hash } from "bcryptjs";
 import { cookies } from "next/headers";
+import { connectDB } from "./db";
 import { UserModel, GLOBAL_ROLES, type GlobalRole } from "./models";
 import {
   SESSION_COOKIE,
@@ -66,6 +67,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const userId = await verifySessionToken(token);
   if (!userId) return null;
   if (!/^[a-f\d]{24}$/i.test(userId)) return null;
+  // LAYOUTS/PAGES call this directly - unlike API routes they never await
+  // connectDB() first, so the model op would buffer with Mongoose DEFAULT
+  // timeouts (the "buffering timed out after 10000ms" incident class on
+  // serverless: cold instance + slow first connect). Cached + idempotent.
+  await connectDB();
   const user = await UserModel.findById(userId).lean();
   if (!user) return null;
   return toSessionUser(
