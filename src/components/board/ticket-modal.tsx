@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { isEqual } from "lodash";
+import { useMemo, useRef, useState } from "react";
 import { LoaderCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,8 @@ export function TicketModal({
   const [attachmentsDirty, setAttachmentsDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Unsaved-changes prompt (round-33): asks before losing edits. */
+  const [unsavedOpen, setUnsavedOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [commentEmpty, setCommentEmpty] = useState(true);
   const [commentNonce, setCommentNonce] = useState(0);
@@ -129,20 +132,73 @@ export function TicketModal({
     }).catch(() => undefined);
   }
 
+  /* ------------------- unsaved-changes guard (round-33) ------------------- */
+
+  /** Rich-editor mount normalization re-baseline: Tiptap fires exactly one
+   * onChange right after creation when it normalizes the mounted HTML (lists,
+   * empty paragraphs...). A user edit needs focus + keystrokes, so the FIRST
+   * emission is always the editor's own pass - adopt it as the pristine
+   * description baseline so untouched dialogs never read as "dirty". */
+  const descBaselineAdopted = useRef(false);
+
+  /** Pristine snapshot the live form state is compared against with lodash.
+   * State (not a ref) so the render-time compare stays lint-safe; the
+   * description baseline re-seats itself exactly once (see the editor onChange
+   * below for the Tiptap mount-normalization pass). */
+  const [pristine, setPristine] = useState({
+    title: ticket?.title ?? "",
+    description: ticket?.description ?? "",
+    status: ticket?.status ?? initialStatus,
+    assigneeId: ticket?.assigneeId ?? null,
+    priority: ticket?.priority ?? "medium",
+    dueDate: ticket?.dueDate ? new Date(ticket.dueDate).toISOString().slice(0, 10) : "",
+    attachments: (ticket?.attachments ?? []).map((a) => [a.key, a.name, a.contentType, a.size]),
+    questions: [] as unknown[],
+  });
+
+  const isDirty = useMemo(() => {
+    const current = {
+      title,
+      description,
+      status,
+      assigneeId,
+      priority,
+      dueDate,
+      attachments: readyAttachments.map((a) => [a.key, a.name, a.contentType, a.size]),
+      // Authored-but-unsaved questions only exist in create mode; in edit
+      // mode question edits persist instantly via the tickets API.
+      questions: isEdit
+        ? []
+        : draftQuestions.map((q) => [q.prompt, q.type, q.options, q.textOptionIndexes, q.allowMultiple, q.required]),
+    };
+    return !isEqual(current, pristine);
+  }, [title, description, status, assigneeId, priority, dueDate, readyAttachments, draftQuestions, isEdit, pristine]);
+
+  /** Real close: drops the dialog (with upload orphan GC). */
   function handleClose() {
     cleanupSessionMedia(sessionMediaRef.current);
     onClose();
   }
 
+  /** Every close path (X, backdrop, ESC) funnels here - dirty forms ask first. */
+  function attemptClose() {
+    if (isDirty && !busy) {
+      setUnsavedOpen(true);
+      return;
+    }
+    handleClose();
+  }
+
   /* ---------------------------- actions ---------------------------- */
 
-  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!canWrite) return;
+   /** Shared save path (form submit AND the unsaved-changes "Save" button).
+   * Returns whether the save succeeded so the ask-dialog can react. */
+  async function performSave(): Promise<boolean> {
+    if (!canWrite) return false;
     setError(null);
     if (title.trim().length < 3) {
       setError(t("ticket.titleShort"));
-      return;
+      return false;
     }
     setBusy(true);
     try {
@@ -163,31 +219,38 @@ export function TicketModal({
         onUpdated?.(res.ticket);
         toast.success(t("ticket.updated"));
         onClose();
-      } else {
-        payload.projectId = project.id;
-        payload.attachments = readyAttachments;
-        // Questions authored in the create-mode side panel ship with the ticket.
-        payload.questions = draftQuestions.map((q) => ({
-          prompt: q.prompt,
-          type: q.type,
-          options: q.options,
-          textOptionIndexes: q.textOptionIndexes,
-          allowMultiple: q.allowMultiple,
-          required: q.required,
-        }));
-        const res = await apiFetch<{ ticket: TicketDTO }>("/api/tickets", {
-          method: "POST",
-          json: payload,
-        });
-        onCreated?.(res.ticket);
-        toast.success(t("ticket.created"));
-        onClose();
+        return true;
       }
+      payload.projectId = project.id;
+      payload.attachments = readyAttachments;
+      // Questions authored in the create-mode side panel ship with the ticket.
+      payload.questions = draftQuestions.map((q) => ({
+        prompt: q.prompt,
+        type: q.type,
+        options: q.options,
+        textOptionIndexes: q.textOptionIndexes,
+        allowMultiple: q.allowMultiple,
+        required: q.required,
+      }));
+      const res = await apiFetch<{ ticket: TicketDTO }>("/api/tickets", {
+        method: "POST",
+        json: payload,
+      });
+      onCreated?.(res.ticket);
+      toast.success(t("ticket.created"));
+      onClose();
+      return true;
     } catch (err) {
       setError(explainApi(err, t, "ticket.saveFail"));
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void performSave();
   }
 
   async function handleDelete() {
@@ -230,10 +293,10 @@ export function TicketModal({
   /* ----------------------------- render ----------------------------- */
 
   return (
-    <Dialog open onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open onOpenChange={(open) => !open && attemptClose()}>
       <DialogContent
         size="2xl"
-        className="scrollbar-stable top-[4vh] max-h-[92vh] translate-y-0 md:overflow-hidden"
+        className="scrollbar-stable top-[3vh] max-h-[94vh] translate-y-0 md:overflow-hidden"
       >
         <div data-testid="ticket-modal" className="flex flex-col">
           <DialogHeader>
@@ -269,7 +332,7 @@ export function TicketModal({
               blank tail on long-timeline tickets. RIGHT/BY-USER DECISION:
               the review (client questions / feedback) side is the heavier
               surface and takes 60% of the form. */}
-          <div className="grid gap-0 md:h-[78vh] md:grid-cols-[1fr_1.5fr] md:grid-rows-[minmax(0,1fr)]">
+          <div className="grid gap-0 md:h-[90vh] md:grid-cols-[1fr_1.5fr] md:grid-rows-[minmax(0,1fr)]">
             {/* Left: fields - its own smooth scroll so the right column never shifts it */}
             <form
               onSubmit={handleSave}
@@ -295,7 +358,15 @@ export function TicketModal({
                     rides the contenteditable for QA. */}
                 <RichTextEditor
                   value={description}
-                  onChange={(html) => setDescription(html)}
+                  onChange={(html) => {
+                    if (!descBaselineAdopted.current) {
+                      descBaselineAdopted.current = true;
+                      // First emission = the editor's mount normalization
+                      // pass, not user input - re-seat the pristine baseline.
+                      setPristine((prev) => ({ ...prev, description: html }));
+                    }
+                    setDescription(html);
+                  }}
                   placeholder={t("ticket.fieldDescPh")}
                   testid="ticket-description"
                   disabled={!canWrite || busy}
@@ -517,6 +588,26 @@ export function TicketModal({
             setConfirmDeleteOpen(false);
             void handleDelete();
           }}
+        />
+
+        {/* Unsaved-changes ask (round-33): Save / keep editing / discard & close */}
+        <ConfirmDialog
+          open={unsavedOpen}
+          onOpenChange={setUnsavedOpen}
+          title={t("unsaved.title")}
+          description={t("unsaved.body")}
+          confirmLabel={t("unsaved.save")}
+          cancelLabel={t("unsaved.keepEditing")}
+          neutralLabel={t("unsaved.discard")}
+          confirmVariant="default"
+          busy={busy}
+          onConfirm={() => {
+            setUnsavedOpen(false);
+            // Client-side validation errors stay visible on the form (the
+            // ask dialog is already closed here).
+            void performSave();
+          }}
+          onNeutral={handleClose}
         />
       </DialogContent>
     </Dialog>

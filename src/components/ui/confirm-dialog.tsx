@@ -20,11 +20,20 @@ interface ConfirmDialogProps {
   cancelLabel: string;
   busy?: boolean;
   onConfirm: () => void;
+  /** Optional third, low-emphasis action (e.g. discard/neutral outcome).
+   * Rendered leftmost; clicking it closes THIS dialog and fires onNeutral. */
+  neutralLabel?: string;
+  onNeutral?: () => void;
+  /** Visual weight of the confirm button. Defaults to `danger` (destructive
+   * asks); unsaved-changes prompts pass `default` so Save reads positively. */
+  confirmVariant?: "default" | "secondary" | "ghost" | "danger" | "outline";
 }
 
 /**
  * Brand-consistent destructive-action confirmation (replaces window.confirm,
  * which is blocking, unstyled and inconsistent with the design system).
+ * Supports the standard 2-button ask or a 3-button unsaved-changes variant
+ * (neutral = discard, cancel = keep editing, confirm = save).
  */
 export function ConfirmDialog({
   open,
@@ -35,6 +44,9 @@ export function ConfirmDialog({
   cancelLabel,
   busy = false,
   onConfirm,
+  neutralLabel,
+  onNeutral,
+  confirmVariant = "danger",
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,6 +55,21 @@ export function ConfirmDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DialogFooter>
+          {neutralLabel && onNeutral && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                onOpenChange(false);
+                onNeutral();
+              }}
+              data-testid="confirm-neutral"
+            >
+              {neutralLabel}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -55,7 +82,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             type="button"
-            variant="danger"
+            variant={confirmVariant}
             size="sm"
             disabled={busy}
             onClick={onConfirm}

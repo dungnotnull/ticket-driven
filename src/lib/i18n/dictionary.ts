@@ -398,6 +398,16 @@ export const DICT = {
   "confirm.delete": { en: "Delete", ja: "削除" },
   "confirm.remove": { en: "Remove", ja: "削除する" },
 
+  /* unsaved-changes guard (round-33): ticket & project form dialogs */
+  "unsaved.title": { en: "Save your changes?", ja: "変更を保存しますか？" },
+  "unsaved.body": {
+    en: "You have unsaved changes in this form. Saving keeps them; discarding closes the form and loses your edits.",
+    ja: "未保存の変更があります。保存すると変更が保持され、破棄するとフォームを閉じて変更が失われます。",
+  },
+  "unsaved.save": { en: "Save", ja: "保存" },
+  "unsaved.keepEditing": { en: "Keep editing", ja: "編集を続ける" },
+  "unsaved.discard": { en: "Discard changes", ja: "変更を破棄" },
+
   /* board background picker (Trello-style, admin/team) */
   "bg.button": { en: "Background", ja: "背景" },
   "bg.title": { en: "Board background", ja: "ボードの背景" },

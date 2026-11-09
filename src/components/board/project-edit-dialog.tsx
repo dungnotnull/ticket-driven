@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { isEqual } from "lodash";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Edit3, ListChecks, LoaderCircle, MessageSquare, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -76,9 +78,33 @@ export function ProjectEditDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Unsaved-changes confirm (round-33): asks before discarding edits. */
+  const [unsavedOpen, setUnsavedOpen] = useState(false);
   /** Media keys uploaded this session (description editor) - cleaned on
    *  close: the backend keeps any key referenced by saved content. */
   const sessionMediaRef = useRef<string[]>([]);
+
+  /** Pristine snapshot compared against live form state with lodash. State
+   * (not a ref) keeps the render-time compare lint-safe; the rich editor's
+   * mount-normalization pass re-seats the description baseline exactly once
+   * (see the editor onChange below). */
+  const [pristine, setPristine] = useState({
+    name: project.name,
+    description: project.description,
+    gradientKey: project.gradientKey ?? null,
+    templates: project.defaultQuestions ?? ([] as ProjectDefaultQuestionDTO[]),
+  });
+  const descBaselineAdopted = useRef(false);
+
+  const isDirty = useMemo(() => {
+    const current = {
+      name,
+      description,
+      gradientKey,
+      templates: templateRows,
+    };
+    return !isEqual(current, pristine);
+  }, [name, description, gradientKey, templateRows, pristine]);
 
   function cleanupSessionMedia() {
     const candidates = [...new Set(sessionMediaRef.current)].filter(Boolean);
@@ -89,9 +115,24 @@ export function ProjectEditDialog({
     }).catch(() => undefined);
   }
 
+  /** Real close: discard edits (with upload orphan GC). */
+  function realClose() {
+    cleanupSessionMedia();
+    onOpenChange(false);
+  }
+
+  /** X, backdrop, ESC and Cancel all funnel here - dirty forms ask first. */
+  function attemptClose() {
+    if (isDirty && !busy) {
+      setUnsavedOpen(true);
+      return;
+    }
+    realClose();
+  }
+
   function handleDialogChange(open: boolean) {
-    if (!open) cleanupSessionMedia();
-    onOpenChange(open);
+    if (!open) attemptClose();
+    else onOpenChange(open);
   }
 
   function patchRow(index: number, patch: Partial<TemplateRow>) {
@@ -135,8 +176,7 @@ export function ProjectEditDialog({
       .slice(0, 5);
   }
 
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function performSave(): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -151,14 +191,20 @@ export function ProjectEditDialog({
       });
       if (!result.ok || !result.data) {
         setError(explainApi(result, t, "prj.saveFail"));
-        return;
+        return false;
       }
       toast.success(t("prj.saved"));
       onOpenChange(false);
       onSaved?.();
+      return true;
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void performSave();
   }
 
   return (
@@ -194,7 +240,15 @@ export function ProjectEditDialog({
               }
               <RichTextEditor
                 value={description}
-                onChange={(html) => setDescription(html)}
+                onChange={(html) => {
+                  if (!descBaselineAdopted.current) {
+                    descBaselineAdopted.current = true;
+                    // First emission = the editor's mount normalization pass,
+                    // not user input - re-seat the pristine baseline.
+                    setPristine((prev) => ({ ...prev, description: html }));
+                  }
+                  setDescription(html);
+                }}
                 placeholder={t("home.descPh")}
                 testid="edit-project-desc"
                 minHeight="96px"
@@ -445,7 +499,7 @@ export function ProjectEditDialog({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => onOpenChange(false)}
+              onClick={attemptClose}
               disabled={busy}
             >
               {t("home.cancel")}
@@ -456,6 +510,23 @@ export function ProjectEditDialog({
             </Button>
           </DialogFooter>
         </form>
+        {/* Unsaved-changes ask (round-33): Save / keep editing / discard & close */}
+        <ConfirmDialog
+          open={unsavedOpen}
+          onOpenChange={setUnsavedOpen}
+          title={t("unsaved.title")}
+          description={t("unsaved.body")}
+          confirmLabel={t("unsaved.save")}
+          cancelLabel={t("unsaved.keepEditing")}
+          neutralLabel={t("unsaved.discard")}
+          confirmVariant="default"
+          busy={busy}
+          onConfirm={() => {
+            setUnsavedOpen(false);
+            void performSave();
+          }}
+          onNeutral={realClose}
+        />
       </DialogContent>
     </Dialog>
   );
