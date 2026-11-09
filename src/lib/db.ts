@@ -41,11 +41,6 @@ export async function connectDB(): Promise<typeof mongoose> {
         return m;
       });
   }
-      .then((m) => {
-        globalForMongoose.__mongooseCache!.conn = m;
-        return m;
-      });
-  }
   await globalForMongoose.__mongooseCache.promise;
   return globalForMongoose.__mongooseCache.conn!;
 }
