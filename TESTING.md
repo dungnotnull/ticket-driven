@@ -141,3 +141,6 @@ npm run lint
    file lean - it is the release gate).
 3. Append the probe result to the round gate in
    `IMPLEMENTATION-NOTES.md`, then update `DEVELOPMENT-TRACKING-PROGRESS.md`.
+
+
+<!-- round 28e: session-gated pages stream behind Suspense; auth bounce regression covered by e2e A1-A3 + prod-sim document-load checks -->
