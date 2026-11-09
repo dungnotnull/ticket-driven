@@ -23,11 +23,24 @@ export async function connectDB(): Promise<typeof mongoose> {
     globalForMongoose.__mongooseCache = { conn: null, promise: null };
   }
   if (!globalForMongoose.__mongooseCache.promise) {
+    // First DB calls run before the connection is live: Mongoose buffers
+    // commands and throws after bufferTimeoutMS (default 10s). The round-28e
+    // incident (cold serverless + slow Atlas) hit exactly that throw.
+    mongoose.set("bufferTimeoutMS", 25_000);
     globalForMongoose.__mongooseCache.promise = mongoose
       .connect(uri, {
         dbName: process.env.MONGODB_DB ?? "kanban",
-        serverSelectionTimeoutMS: 8_000,
+        // Keep the serverless instance's pool small so N concurrent lambdas
+        // never exhaust an Atlas M0 connection cap.
+        serverSelectionTimeoutMS: 10_000,
+        maxPoolSize: 10,
+        maxIdleTimeMS: 300_000,
       })
+      .then((m) => {
+        globalForMongoose.__mongooseCache!.conn = m;
+        return m;
+      });
+  }
       .then((m) => {
         globalForMongoose.__mongooseCache!.conn = m;
         return m;
