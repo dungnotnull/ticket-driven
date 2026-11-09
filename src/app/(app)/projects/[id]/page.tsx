@@ -47,11 +47,13 @@ async function BoardContent({ id }: { id: string }) {
   let tickets;
   let myRole: "admin" | "team" | "client" | null = null;
   try {
-    // Parallel fetches: tickets + effective role resolve independently.
-    project = await getProjectDetail(id, user);
-    [tickets, myRole] = await Promise.all([
+    // Fully parallel: session-cold serverless instances have a tight
+    // function budget (Netlify sync functions cap at 10s) - getProjectDetail
+    // is RBAC-checked inside, and non-403/404 errors propagate.
+    [project, tickets, myRole] = await Promise.all([
+      getProjectDetail(id, user),
       listTickets(user, { projectId: id }),
-      peekProjectRole(id),
+      peekProjectRole(id) as Promise<"admin" | "team" | "client" | null>,
     ]);
   } catch (error) {
     // 403 (non-member) and 404: hide the project's existence. Anything else
