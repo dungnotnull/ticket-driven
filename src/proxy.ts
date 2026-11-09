@@ -41,7 +41,9 @@ export async function proxy(request: NextRequest) {
   if (!isRscFlight) {
     const url = request.nextUrl.clone();
     url.searchParams.set("_v", crypto.randomUUID());
-    return NextResponse.rewrite(url);
+    return NextResponse.rewrite(url, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   }
 
   const response = NextResponse.next();
