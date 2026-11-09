@@ -20,6 +20,7 @@ import { apiFetch, ApiClientError } from "@/lib/fetcher";
 import { explainApi } from "@/lib/i18n/dictionary";
 import { useLang } from "@/lib/i18n";
 import { COLUMN_LABELS } from "@/lib/types";
+import { pushPendingTicket } from "@/lib/pending-ticket";
 import type { NotificationDTO } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth";
 import { cn, timeAgo } from "@/lib/utils";
@@ -89,7 +90,8 @@ export function NotificationsBell({ user }: { user: SessionUser }) {
 
   // Initial badge + visibility-aware poll (pause in hidden tabs = cheap).
   // The kickoff goes through setTimeout so no setState is called synchronously
-  // inside the effect body (react-compiler rule).
+  // inside the effect body (react-compiler rule). Window focus also triggers
+  // an immediate catch-up so switching back to the tab feels realtime.
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     const tick = () => {
@@ -98,10 +100,12 @@ export function NotificationsBell({ user }: { user: SessionUser }) {
     const kickoff = setTimeout(tick, 0);
     timer = setInterval(tick, POLL_MS);
     document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
     return () => {
       clearTimeout(kickoff);
       if (timer) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
     };
   }, [refreshBadge]);
 
@@ -116,7 +120,14 @@ export function NotificationsBell({ user }: { user: SessionUser }) {
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") void refreshList(tab);
     }, POLL_MS);
-    return () => clearInterval(interval);
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void refreshList(tab);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [open, tab, refreshList]);
 
   async function markSeen(id: string, seen: boolean) {
@@ -143,13 +154,17 @@ export function NotificationsBell({ user }: { user: SessionUser }) {
     }
   }
 
-  /** Facebook-style: click = mark seen + navigate (deep-link opens the ticket). */
+  /** Facebook-style: click = mark seen + navigate (deep-link opens the
+   *  ticket). Round-34b: the ticket is ALSO dropped into the pending store,
+   *  so an already-open board opens the modal instantly (router pushes to
+   *  the same URL are deduped - the store event is not). */
   function go(n: NotificationDTO) {
     if (!n.seen) void markSeen(n.id, true);
     setOpen(false);
     const target = n.ticket
       ? `/projects/${n.project.id}?ticket=${n.ticket.id}`
       : `/projects/${n.project.id}`;
+    if (n.ticket) pushPendingTicket(n.project.id, n.ticket.id);
     router.push(target);
   }
 

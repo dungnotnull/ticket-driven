@@ -65,6 +65,7 @@ import { explainApi } from "@/lib/i18n/dictionary";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import { apiFetch } from "@/lib/fetcher";
 import { cn, timeAgo } from "@/lib/utils";
+import { consumePendingTicket, usePendingTicket } from "@/lib/pending-ticket";
 import { stripRichHtml } from "@/lib/sanitize";
 import {
   COLUMN_KEYS,
@@ -191,17 +192,47 @@ export function BoardWorkspace({
   const [activeId, setActiveId] = useState<string | null>(null);
   /* -- round-34 deep link: ?ticket=<id> auto-opens that ticket's modal.
         Validated against the server list in the lazy initializer so the
-        modal is simply born open (no setState-in-effect dance). -- */
-  const [openTicketId, setOpenTicketId] = useState<string | null>(() =>
+        modal is simply born open (no setState-in-effect dance). The board
+        PAGE also keys this workspace on the id, so a soft navigation that
+        only changes the ?ticket= query remounts and re-runs this. -- */
+  const deepLinked =
     initialTicketId && initialTickets.some((tk) => tk.id === initialTicketId)
       ? initialTicketId
-      : null,
-  );
+      : null;
+  const [openTicketId, setOpenTicketId] = useState<string | null>(deepLinked);
 
-  // Clean the ?ticket= query off once consumed (DOM-only; no state writes).
+  /* -- round-34b: bell clicks hand their ticket to the pending store, so the
+        modal opens on EVERY ticket-scope notification click - even when this
+        board is already open and the router dedupes the navigation. -- */
+  const pending = usePendingTicket();
+  const pendingHere =
+    pending && pending.pid === project.id && tickets.some((tk) => tk.id === pending.tid)
+      ? pending.tid
+      : null;
+  const effectiveOpenId = openTicketId ?? pendingHere;
+
+  // Latch: once the pending ticket opened the modal, pin it to state and
+  // clear the store (queued microtask - no synchronous setState in effect).
   useEffect(() => {
-    if (initialTicketId) window.history.replaceState(null, "", window.location.pathname);
-  }, [initialTicketId]);
+    if (!pendingHere) return;
+    const tid = pendingHere;
+    queueMicrotask(() => {
+      consumePendingTicket();
+      setOpenTicketId(tid);
+    });
+  }, [pendingHere]);
+
+  // A deep-linked ticket that no longer exists -> calm toast, no crash.
+  useEffect(() => {
+    if (initialTicketId && !deepLinked) {
+      toast.error(t("board.ticketGone"));
+    }
+    // Clean the ?ticket= query off once consumed (DOM-only; no state writes).
+    if (initialTicketId) {
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast wording is stable per mount
+  }, [initialTicketId, deepLinked]);
   const [createStatus, setCreateStatus] = useState<ColumnKey | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [persisting, setPersisting] = useState(false);
@@ -429,7 +460,9 @@ export function BoardWorkspace({
 
   /* ------------------------- modal state ------------------------- */
 
-  const activeTicket = openTicketId ? tickets.find((t) => t.id === openTicketId) ?? null : null;
+  const activeTicket = effectiveOpenId
+    ? tickets.find((t) => t.id === effectiveOpenId) ?? null
+    : null;
 
   function handleUpdated(updated: TicketDTO) {
     setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));

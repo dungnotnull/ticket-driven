@@ -37,6 +37,7 @@ interface ActivityTimelineProps {
 /** GitHub-style chronological activity feed, newest first. */
 export function ActivityTimeline({ activity, memberById }: ActivityTimelineProps) {
   const { t } = useLang();
+  const memberNames = [...memberById.values()].map((m) => m.name);
   const sorted = [...activity].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -55,7 +56,7 @@ export function ActivityTimeline({ activity, memberById }: ActivityTimelineProps
         const meta = TYPE_ICON[entry.type] ?? TYPE_ICON.edited;
         const member = entry.actorId ? (memberById.get(entry.actorId) ?? null) : null;
         const displayName = member?.name ?? entry.actorName ?? t("act.someone");
-        return <li key={entry.id}>{renderEntry(entry, meta, displayName, member, t)}</li>;
+        return <li key={entry.id}>{renderEntry(entry, meta, displayName, member, t, memberNames)}</li>;
       })}
     </ol>
   );
@@ -76,6 +77,7 @@ function renderEntry(
   displayName: string,
   member: { name: string; email: string; role: string } | null,
   t: Translate,
+  memberNames: string[],
 ) {
   const sentence = noteIsSentence(entry);
   const action = sentence
@@ -106,7 +108,7 @@ function renderEntry(
 
         {entry.note && entry.type !== "comment" && !sentence && (
           looksLikeHtml(entry.note) ? (
-            <RichNote html={entry.note} className="mt-1" />
+            <RichNote html={entry.note} className="mt-1" memberNames={memberNames} />
           ) : (
             <p className="mt-1 text-[12.5px] text-foreground/85">{entry.note}</p>
           )
@@ -114,7 +116,7 @@ function renderEntry(
         {entry.type === "comment" && (
           <blockquote className="mt-1 rounded-md border border-border bg-surface-2 px-2.5 py-1.5">
             {looksLikeHtml(entry.note ?? "") ? (
-              <RichNote html={entry.note ?? ""} />
+              <RichNote html={entry.note ?? ""} memberNames={memberNames} />
             ) : (
               <span className="text-[12.5px] text-foreground/90">{entry.note}</span>
             )}

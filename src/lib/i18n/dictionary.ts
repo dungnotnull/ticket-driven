@@ -449,6 +449,10 @@ export const DICT = {
     en: "Type @ to tag a project member",
     ja: "@ と入力してプロジェクトのメンバーをタグできます",
   },
+  "board.ticketGone": {
+    en: "This ticket no longer exists (it may have been deleted).",
+    ja: "このチケットは存在しないか、削除されました。",
+  },
 
   /* board background picker (Trello-style, admin/team) */
   "bg.button": { en: "Background", ja: "背景" },

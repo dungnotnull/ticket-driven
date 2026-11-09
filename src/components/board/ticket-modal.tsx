@@ -426,7 +426,7 @@ export function TicketModal({
                     aria-expanded={assigneeOpen}
                     disabled={!canWrite || busy}
                     onClick={() => setAssigneeOpen((v) => !v)}
-                    className="press flex min-h-9 w-full items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-left text-[13px] transition-colors hover:border-border-strong disabled:opacity-50"
+                    className="press flex min-h-9 w-full flex-wrap items-center content-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-left text-[13px] transition-colors hover:border-border-strong disabled:opacity-50"
                   >
                     {assigneeIds.length === 0 ? (
                       <span className="text-muted">{t("ticket.unassigned")}</span>
@@ -434,21 +434,15 @@ export function TicketModal({
                       <>
                         {assigneeList
                           .filter((m) => assigneeIds.includes(m.id))
-                          .slice(0, 2)
                           .map((m) => (
                             <span
                               key={m.id}
-                              className="flex items-center gap-1 rounded-full bg-surface-2 px-1.5 py-0.5 text-[11.5px]"
+                              className="flex max-w-full items-center gap-1 rounded-full bg-surface-2 px-1.5 py-0.5 text-[11.5px]"
                             >
                               <Avatar name={m.name} size="xs" />
-                              <span className="max-w-32 truncate">{m.name}</span>
+                              <span className="min-w-0 max-w-40 truncate">{m.name}</span>
                             </span>
                           ))}
-                        {assigneeIds.length > 2 && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                            +{assigneeIds.length - 2}
-                          </span>
-                        )}
                       </>
                     )}
                   </button>

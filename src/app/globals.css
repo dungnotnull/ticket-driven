@@ -192,6 +192,16 @@ html body[data-scroll-locked] {
   color: var(--color-primary);
   text-decoration: underline;
 }
+
+/* Round-34b: @mentions render Facebook-style - bold with a light indigo
+   chip background so tagged members pop inside comments/feedback. */
+.mention-chip {
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+}
 .rt-content .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;

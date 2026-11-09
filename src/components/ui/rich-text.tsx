@@ -370,7 +370,7 @@ export function RichTextEditor({
           className="absolute z-30 left-2 right-2 top-8 max-h-44 overflow-y-auto rounded-lg border border-border bg-surface-2 py-1 shadow-xl scroll-thin-xs"
           data-testid="mention-menu"
         >
-          <p className="px-2.5 pb-1 text-[10.5px] text-muted">{t("notif.at")}</p>
+          <p className="px-2.5 pb-1 text-[10.5px] text-muted">{t("notif.atHint")}</p>
           {mentionMatches.map((m, i) => (
             <button
               key={m.id}
@@ -382,9 +382,12 @@ export function RichTextEditor({
               }}
               onMouseEnter={() => setMentionIdx(i)}
               data-testid={`mention-option-${m.id}`}
+              data-active={i === mentionIdx}
               className={cn(
                 "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
-                i === mentionIdx ? "bg-surface-2-strong text-foreground" : "text-foreground/90",
+                i === mentionIdx
+                  ? "bg-surface text-primary"
+                  : "text-foreground/90 hover:bg-surface hover:text-primary",
               )}
             >
               <span className="size-5 shrink-0 rounded-full bg-primary/15 text-center text-[10px] leading-5 text-primary">

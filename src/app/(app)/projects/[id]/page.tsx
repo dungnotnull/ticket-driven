@@ -71,7 +71,11 @@ async function BoardContent({
   }
 
   return (
+    // Key rides on the deep-linked ticket: a notification click that arrives
+    // while ALREADY on this board (soft navigation, only ?ticket changed)
+    // remounts the workspace so the modal is opened by the fresh initializer.
     <BoardWorkspace
+      key={`board-${initialTicketId ?? "none"}`}
       project={project}
       tickets={tickets}
       myRole={myRole ?? "team"}
