@@ -10,6 +10,7 @@ import { invalidateReadCaches } from "@/lib/cache";
 import {
   COLUMN_KEYS,
   GLOBAL_ROLES,
+  NOTIFICATION_TYPES,
   PRIORITIES,
   PROJECT_ROLES,
   REVIEW_STATUSES,
@@ -215,7 +216,10 @@ const TicketSchema = new Schema(
       default: "todo",
     },
     order: { type: Number, required: true, default: 0 },
+    /** Legacy single assignee, mirrors assigneeIds[0] on writes (compat). */
     assigneeId: { type: Schema.Types.ObjectId, ref: "User" },
+    /** Round-34: one ticket can carry MANY assignees across roles. */
+    assigneeIds: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     priority: { type: String, enum: [...PRIORITIES], default: "medium" },
     dueDate: { type: Date },
     attachments: { type: [AttachmentSchema], default: [] },
@@ -229,6 +233,31 @@ const TicketSchema = new Schema(
 
 TicketSchema.index({ projectId: 1, status: 1, order: 1 });
 TicketSchema.index({ projectId: 1, updatedAt: -1 });
+TicketSchema.index({ assigneeIds: 1 });
+
+/* --------------------------- notifications (bell) -------------------------- */
+
+const NotificationSchema = new Schema(
+  {
+    /** Recipient (project member; global admins are NEVER recipients). */
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectName: { type: String, default: "" },
+    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
+    ticketTitle: { type: String, default: "" },
+    /** Who triggered the activity (notified list excludes them). */
+    actorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    actorName: { type: String, default: "" },
+    type: { type: String, enum: [...NOTIFICATION_TYPES], required: true },
+    /** status_change only: the column the ticket moved to. */
+    statusTo: { type: String, enum: [...COLUMN_KEYS] },
+    seen: { type: Boolean, default: false, required: true },
+    seenAt: { type: Date },
+  },
+  { timestamps: true },
+);
+
+NotificationSchema.index({ userId: 1, seen: 1, createdAt: -1 });
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -281,3 +310,8 @@ export const ProjectModel: Model<ProjectDocData> =
   models.Project ?? model<ProjectDocData>("Project", ProjectSchema);
 export const TicketModel: Model<TicketDocData> =
   models.Ticket ?? model<TicketDocData>("Ticket", TicketSchema);
+
+export type NotificationDocData = InferSchemaType<typeof NotificationSchema>;
+export type NotificationDocument = HydratedDocument<NotificationDocData>;
+export const NotificationModel: Model<NotificationDocData> =
+  models.Notification ?? model<NotificationDocData>("Notification", NotificationSchema);

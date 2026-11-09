@@ -39,7 +39,13 @@ export async function generateMetadata({
  * the build prerenders only the safe skeleton shell - a cookie-less build
  * render must never bake notFound()/redirect() into the shared document.
  */
-async function BoardContent({ id }: { id: string }) {
+async function BoardContent({
+  id,
+  initialTicketId = null,
+}: {
+  id: string;
+  initialTicketId?: string | null;
+}) {
   const user = await getSessionUser();
   if (!user) notFound();
 
@@ -70,6 +76,7 @@ async function BoardContent({ id }: { id: string }) {
       tickets={tickets}
       myRole={myRole ?? "team"}
       myUserId={user.id}
+      initialTicketId={initialTicketId}
     />
   );
 }
@@ -91,13 +98,18 @@ function BoardFallback() {
 
 export default async function ProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const rawTicket = sp.ticket;
+  const initialTicketId = typeof rawTicket === "string" ? rawTicket : null;
   return (
     <Suspense fallback={<BoardFallback />}>
-      <BoardContent id={id} />
+      <BoardContent id={id} initialTicketId={initialTicketId} />
     </Suspense>
   );
 }

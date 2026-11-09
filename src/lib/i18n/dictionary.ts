@@ -408,6 +408,48 @@ export const DICT = {
   "unsaved.keepEditing": { en: "Keep editing", ja: "編集を続ける" },
   "unsaved.discard": { en: "Discard changes", ja: "変更を破棄" },
 
+  /* round-34 notifications (bell + dropdown + @-mention autocomplete) */
+  "notif.title": { en: "Notifications", ja: "通知" },
+  "notif.unread": { en: "Unread", ja: "未読" },
+  "notif.all": { en: "All", ja: "すべて" },
+  "notif.markAll": { en: "Mark all as read", ja: "すべて既読にする" },
+  "notif.markRead": { en: "Mark as read", ja: "既読にする" },
+  "notif.markUnread": { en: "Mark as unread", ja: "未読にする" },
+  "notif.empty": { en: "No notifications yet", ja: "通知はまだありません" },
+  "notif.mention": {
+    en: "{actor} mentioned you in ticket \"{ticket}\"",
+    ja: "{actor} がチケット「{ticket}」であなたをメンションしました",
+  },
+  "notif.comment": {
+    en: "{actor} commented on ticket \"{ticket}\"",
+    ja: "{actor} がチケット「{ticket}」にコメントしました",
+  },
+  "notif.status_change": {
+    en: "{actor} moved ticket \"{ticket}\" to \"{column}\"",
+    ja: "{actor} がチケット「{ticket}」を「{column}」に移動しました",
+  },
+  "notif.assignment": {
+    en: "{actor} assigned you a new ticket \"{ticket}\"",
+    ja: "{actor} があなたに新しいチケット「{ticket}」を割り当てました",
+  },
+  "notif.feedback_requested": {
+    en: "{actor} requested your feedback on ticket \"{ticket}\"",
+    ja: "{actor} がチケット「{ticket}」のフィードバックを依頼しました",
+  },
+  "notif.feedback_approved": {
+    en: "{actor} approved ticket \"{ticket}\"",
+    ja: "{actor} がチケット「{ticket}」を承認しました",
+  },
+  "notif.feedback_changes": {
+    en: "{actor} requested changes on ticket \"{ticket}\"",
+    ja: "{actor} がチケット「{ticket}」に修正を依頼しました",
+  },
+  "notif.at": { en: "Mention a member", ja: "メンバーをメンション" },
+  "notif.atHint": {
+    en: "Type @ to tag a project member",
+    ja: "@ と入力してプロジェクトのメンバーをタグできます",
+  },
+
   /* board background picker (Trello-style, admin/team) */
   "bg.button": { en: "Background", ja: "背景" },
   "bg.title": { en: "Board background", ja: "ボードの背景" },

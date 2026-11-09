@@ -1,0 +1,10 @@
+# Netlify configuration (DymTicket)
+#
+# Scheduled notification cleanup (round-34): every Monday 00:00 UTC the
+# `notifications-cleanup` function deletes notifications seen >30 days ago.
+[functions."notifications-cleanup"]
+schedule = "0 0 * * 1"
+
+[build]
+command = "npm run build"
+publish = ".next"

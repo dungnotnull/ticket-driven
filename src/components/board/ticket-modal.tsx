@@ -4,6 +4,7 @@ import { isEqual } from "lodash";
 import { useMemo, useRef, useState } from "react";
 import { LoaderCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,7 +80,10 @@ export function TicketModal({
   const [description, setDescription] = useState(ticket?.description ?? "");
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [status, setStatus] = useState<ColumnKey>(ticket?.status ?? initialStatus);
-  const [assigneeId, setAssigneeId] = useState<string | null>(ticket?.assigneeId ?? null);
+  /** Round-34: many assignees (any member role). */
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(ticket?.assigneeIds ?? []);
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [assigneeQuery, setAssigneeQuery] = useState("");
   const [priority, setPriority] = useState(ticket?.priority ?? "medium");
   const [dueDate, setDueDate] = useState(
     ticket?.dueDate ? new Date(ticket.dueDate).toISOString().slice(0, 10) : "",
@@ -122,6 +126,18 @@ export function TicketModal({
 
   const memberName = (id: string | null) => (id ? memberById.get(id)?.name ?? null : null);
 
+  /** Round-34: selectable member rows (multi-role) for the assignee picker. */
+  const assigneeList = useMemo(
+    () =>
+      project.members.map((m) => ({
+        id: m.user.id,
+        name: m.user.name,
+        email: m.user.email,
+        role: m.role,
+      })),
+    [project.members],
+  );
+
   /** Fire-and-forget garbage collection for never-saved uploads. */
   function cleanupSessionMedia(keys: string[]) {
     const candidates = [...new Set(keys)].filter(Boolean);
@@ -149,7 +165,7 @@ export function TicketModal({
     title: ticket?.title ?? "",
     description: ticket?.description ?? "",
     status: ticket?.status ?? initialStatus,
-    assigneeId: ticket?.assigneeId ?? null,
+    assigneeIds: [...(ticket?.assigneeIds ?? [])].sort(),
     priority: ticket?.priority ?? "medium",
     dueDate: ticket?.dueDate ? new Date(ticket.dueDate).toISOString().slice(0, 10) : "",
     attachments: (ticket?.attachments ?? []).map((a) => [a.key, a.name, a.contentType, a.size]),
@@ -161,7 +177,7 @@ export function TicketModal({
       title,
       description,
       status,
-      assigneeId,
+      assigneeIds: [...assigneeIds].sort(),
       priority,
       dueDate,
       attachments: readyAttachments.map((a) => [a.key, a.name, a.contentType, a.size]),
@@ -172,7 +188,7 @@ export function TicketModal({
         : draftQuestions.map((q) => [q.prompt, q.type, q.options, q.textOptionIndexes, q.allowMultiple, q.required]),
     };
     return !isEqual(current, pristine);
-  }, [title, description, status, assigneeId, priority, dueDate, readyAttachments, draftQuestions, isEdit, pristine]);
+  }, [title, description, status, assigneeIds, priority, dueDate, readyAttachments, draftQuestions, isEdit, pristine]);
 
   /** Real close: drops the dialog (with upload orphan GC). */
   function handleClose() {
@@ -206,7 +222,7 @@ export function TicketModal({
         title: title.trim(),
         description,
         status,
-        assigneeId,
+        assigneeIds,
         priority,
         dueDate: dueDate || null,
       };
@@ -399,23 +415,99 @@ export function TicketModal({
 
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ticket-assignee">{t("ticket.fieldAssignee")}</Label>
-                  <Select
-                    value={assigneeId ?? "none"}
-                    onValueChange={(value) => setAssigneeId(value === "none" ? null : value)}
+                  {/* Round-34: ONE ticket, MANY assignees (any member role).
+                      Inline expanding panel (no floating layer needed) keeps
+                      the legacy trigger testid (`ticket-assignee`) so QA keeps
+                      working. */}
+                  <button
+                    type="button"
+                    id="ticket-assignee"
+                    data-testid="ticket-assignee"
+                    aria-expanded={assigneeOpen}
                     disabled={!canWrite || busy}
+                    onClick={() => setAssigneeOpen((v) => !v)}
+                    className="press flex min-h-9 w-full items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-left text-[13px] transition-colors hover:border-border-strong disabled:opacity-50"
                   >
-                    <SelectTrigger id="ticket-assignee">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t("ticket.unassigned")}</SelectItem>
-                      {project.members.map((member) => (
-                        <SelectItem key={member.user.id} value={member.user.id}>
-                          {member.user.name} · {member.role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    {assigneeIds.length === 0 ? (
+                      <span className="text-muted">{t("ticket.unassigned")}</span>
+                    ) : (
+                      <>
+                        {assigneeList
+                          .filter((m) => assigneeIds.includes(m.id))
+                          .slice(0, 2)
+                          .map((m) => (
+                            <span
+                              key={m.id}
+                              className="flex items-center gap-1 rounded-full bg-surface-2 px-1.5 py-0.5 text-[11.5px]"
+                            >
+                              <Avatar name={m.name} size="xs" />
+                              <span className="max-w-32 truncate">{m.name}</span>
+                            </span>
+                          ))}
+                        {assigneeIds.length > 2 && (
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                            +{assigneeIds.length - 2}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+
+                  {(assigneeOpen || undefined) && canWrite && (
+                    <div className="rounded-lg border border-border bg-surface-2/40 p-2">
+                      <Input
+                        value={assigneeQuery}
+                        onChange={(e) => setAssigneeQuery(e.target.value)}
+                        placeholder={t("home.searchPh")}
+                        className="h-7 text-[12px]"
+                        data-testid="assignee-search"
+                      />
+                      <div
+                        className="mt-1.5 max-h-56 overflow-y-auto scroll-thin-xs"
+                        data-testid="assignee-menu"
+                      >
+                        {assigneeList
+                          .filter(
+                            (m) =>
+                              assigneeQuery === "" ||
+                              m.name.toLowerCase().includes(assigneeQuery.toLowerCase()) ||
+                              m.email.toLowerCase().includes(assigneeQuery.toLowerCase()),
+                          )
+                          .map((m) => {
+                            const checked = assigneeIds.includes(m.id);
+                            return (
+                              <label
+                                key={m.id}
+                                data-testid={`assignee-option-${m.id}`}
+                                data-checked={checked}
+                                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2/70"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    setAssigneeIds((prev) =>
+                                      checked ? prev.filter((x) => x !== m.id) : [...prev, m.id],
+                                    )
+                                  }
+                                  className="size-3.5 accent-primary"
+                                />
+                                <Avatar name={m.name} size="xs" />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-[12.5px]">{m.name}</span>
+                                  <span className="block truncate text-[10.5px] text-muted">
+                                    {m.email}
+                                  </span>
+                                </span>
+                                <Badge variant="outline" className="shrink-0 text-[10px]">
+                                  {m.role}
+                                </Badge>
+                              </label>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -556,6 +648,7 @@ export function TicketModal({
                   testid="comment-input"
                   projectId={project.id}
                   minHeight="150px"
+                  mentionCandidates={assigneeList}
                   onMediaKeyUploaded={(key) => sessionMediaRef.current.push(key)}
                 />
                     <div className="flex justify-end">

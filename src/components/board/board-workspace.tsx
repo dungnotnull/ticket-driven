@@ -162,9 +162,18 @@ interface BoardWorkspaceProps {
   tickets: TicketDTO[];
   myRole: "admin" | "team" | "client";
   myUserId: string;
+  /** Round-34 deep link: /projects/x?ticket=<id> opens the modal directly
+   *  (notification clicks land here). */
+  initialTicketId?: string | null;
 }
 
-export function BoardWorkspace({ project, tickets: initialTickets, myRole, myUserId }: BoardWorkspaceProps) {
+export function BoardWorkspace({
+  project,
+  tickets: initialTickets,
+  myRole,
+  myUserId,
+  initialTicketId = null,
+}: BoardWorkspaceProps) {
   const router = useRouter();
   const { t } = useLang();
   const canWrite = myRole === "admin" || myRole === "team";
@@ -180,7 +189,19 @@ export function BoardWorkspace({ project, tickets: initialTickets, myRole, myUse
 
   const [tickets, setTickets] = useState(initialTickets);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [openTicketId, setOpenTicketId] = useState<string | null>(null);
+  /* -- round-34 deep link: ?ticket=<id> auto-opens that ticket's modal.
+        Validated against the server list in the lazy initializer so the
+        modal is simply born open (no setState-in-effect dance). -- */
+  const [openTicketId, setOpenTicketId] = useState<string | null>(() =>
+    initialTicketId && initialTickets.some((tk) => tk.id === initialTicketId)
+      ? initialTicketId
+      : null,
+  );
+
+  // Clean the ?ticket= query off once consumed (DOM-only; no state writes).
+  useEffect(() => {
+    if (initialTicketId) window.history.replaceState(null, "", window.location.pathname);
+  }, [initialTicketId]);
   const [createStatus, setCreateStatus] = useState<ColumnKey | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
   const [persisting, setPersisting] = useState(false);
@@ -207,11 +228,12 @@ export function BoardWorkspace({ project, tickets: initialTickets, myRole, myUse
     if (!filterActive) return tickets;
     return tickets.filter((ticket) => {
       if (priorityFilter && ticket.priority !== priorityFilter) return false;
-      if (assigneeFilter === "none" && ticket.assigneeId) return false;
+      // Round-34 multi-assignee: "none" = no assignees; otherwise match ANY.
+      if (assigneeFilter === "none" && ticket.assigneeIds.length > 0) return false;
       if (
         assigneeFilter &&
         assigneeFilter !== "none" &&
-        ticket.assigneeId !== assigneeFilter
+        !ticket.assigneeIds.includes(assigneeFilter)
       )
         return false;
       if (
@@ -812,7 +834,10 @@ function KanbanCard({
     disabled: !canWrite,
   });
 
-  const assignee = ticket.assigneeId ? memberById.get(ticket.assigneeId) : null;
+  // Round-34: multi-assignee row - first member chip + a "+N" counter.
+  const cardAssignees = (ticket.assigneeIds ?? [])
+    .map((id) => memberById.get(id))
+    .filter((m): m is { name: string; email: string; role: string } => Boolean(m));
   const overdue = ticket.overdue;
 
   return (
@@ -870,10 +895,27 @@ function KanbanCard({
         <span suppressHydrationWarning className="ml-auto text-[10px] text-muted">{timeAgo(ticket.updatedAt)}</span>
       </div>
 
-      {assignee && (
+      {cardAssignees.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5">
-          <Avatar name={assignee.name} email={assignee.email} size="sm" />
-          <span className="truncate text-[11px] text-muted">{assignee.name}</span>
+          {cardAssignees.slice(0, 2).map((m, i) => (
+            <span
+              key={m.name + i}
+              className={cn("flex items-center gap-1", i > 0 && "-ml-3 rounded-full bg-surface pl-1.5 pr-1 py-0.5")}
+            >
+              <Avatar name={m.name} email={m.email} size="sm" />
+              <span className="truncate text-[11px] text-muted max-w-24">
+                {i === 0 ? m.name : ""}
+              </span>
+            </span>
+          ))}
+          {cardAssignees.length > 2 && (
+            <span
+              data-testid="kanban-assignee-more"
+              className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+            >
+              +{cardAssignees.length - 2}
+            </span>
+          )}
         </div>
       )}
     </article>

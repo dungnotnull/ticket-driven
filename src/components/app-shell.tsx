@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LangToggle } from "@/components/lang-toggle";
+import { NotificationsBell } from "@/components/app/notifications-bell";
 import {
   Menu,
   MenuContent,
@@ -93,6 +94,7 @@ export function AppShell({ user, children }: AppShellProps) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <NotificationsBell user={user} />
             <LangToggle />
             <ThemeToggle />
             <Menu>

@@ -27,6 +27,20 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 export const PROJECT_ROLES = ["admin", "team", "client"] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
+/** Notification categories (round-34). Generic on purpose: the UI composes
+ *  sentences like "user A mentioned you in ticket X" from these + params. */
+export const NOTIFICATION_TYPES = [
+  "comment",
+  "mention",
+  "status_change",
+  "assignment",
+  "feedback_requested",
+  "feedback_approved",
+  "feedback_changes",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+
 export const GLOBAL_ROLES = ["admin", "team", "client"] as const;
 export type GlobalRole = (typeof GLOBAL_ROLES)[number];
 
@@ -148,7 +162,10 @@ export interface TicketDTO {
   description: string;
   status: ColumnKey;
   order: number;
+  /** Legacy single assignee (first of assigneeIds) kept for old consumers. */
   assigneeId: string | null;
+  /** Round-34: multi-assignee support - one ticket, many members/roles. */
+  assigneeIds: string[];
   priority: Priority;
   dueDate: string | null;
   /** Server-computed: due date passed while not done. */
@@ -161,6 +178,20 @@ export interface TicketDTO {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Round-34 notification row (bell + dropdown). Generic type + fields let the
+ *  UI compose localized sentences without new i18n keys per activity. */
+export interface NotificationDTO {
+  id: string;
+  type: import("./types").NotificationType;
+  seen: boolean;
+  project: { id: string; name: string };
+  ticket: { id: string; title: string } | null;
+  /** Target column for status_change notifications. */
+  statusTo: string | null;
+  actor: { id: string; name: string };
+  createdAt: string;
 }
 
 /** Quick-add question template configured by admin/team per project. */

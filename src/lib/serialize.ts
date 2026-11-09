@@ -63,6 +63,7 @@ export interface LeanTicket {
   status?: string;
   order?: number;
   assigneeId?: Types.ObjectId | null;
+  assigneeIds?: Types.ObjectId[];
   priority?: string;
   dueDate?: Date | null;
   attachments?: Array<{
@@ -232,7 +233,17 @@ export function serializeTicket(doc: LeanTicket): TicketDTO {
     description: doc.description ?? "",
     status: pickEnum(doc.status, COLUMN_KEYS, "todo" as ColumnKey),
     order: doc.order ?? 0,
+    // Multi-assignee is the source of truth; legacy assigneeId mirrors the
+    // first entry (written on every ticket write since round-34). Legacy-only
+    // docs (pre-34 rows, seed data) surface their single assignee AS a
+    // one-element list so every consumer sees a single shape.
     assigneeId: doc.assigneeId ? doc.assigneeId.toString() : null,
+    assigneeIds:
+      (doc.assigneeIds ?? []).length > 0
+        ? doc.assigneeIds!.map((a) => a.toString())
+        : doc.assigneeId
+          ? [doc.assigneeId.toString()]
+          : [],
     priority,
     dueDate: iso(doc.dueDate) || null,
     overdue:
@@ -256,4 +267,32 @@ export function serializeTicket(doc: LeanTicket): TicketDTO {
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };
+}
+
+/** Round-34 notification row for the bell dropdown. */
+export function serializeNotification(doc: {
+  _id: Types.ObjectId;
+  type: string;
+  seen: boolean;
+  projectId: Types.ObjectId;
+  projectName?: string;
+  ticketId?: Types.ObjectId | null;
+  ticketTitle?: string;
+  statusTo?: string | null;
+  actorId: Types.ObjectId;
+  actorName?: string;
+  createdAt?: Date;
+}) {
+  return {
+    id: doc._id.toString(),
+    type: doc.type,
+    seen: doc.seen,
+    project: { id: doc.projectId.toString(), name: doc.projectName ?? "" },
+    ticket: doc.ticketId
+      ? { id: doc.ticketId.toString(), title: doc.ticketTitle ?? "" }
+      : null,
+    statusTo: doc.statusTo ?? null,
+    actor: { id: doc.actorId?.toString() ?? "", name: doc.actorName ?? "" },
+    createdAt: iso(doc.createdAt),
+  } as const;
 }

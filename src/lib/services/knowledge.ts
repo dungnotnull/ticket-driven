@@ -79,6 +79,7 @@ interface LeanTicketAgg {
   dueDate: Date | null;
   createdAt: Date;
   assigneeId: Types.ObjectId | null;
+  assigneeIds?: Types.ObjectId[];
   review?: { status?: string | null };
   questions?: Array<{ prompt?: string; required?: boolean; answers?: unknown[] }>;
   activity?: Array<{ type?: string; createdAt: Date }>;
@@ -228,8 +229,14 @@ async function buildKnowledgeGraph(user: SessionUser): Promise<KnowledgeGraphDTO
         meta: `${t.status}${overdue ? " · overdue" : ""} · ${t.priority}`,
       });
       links.push({ source: `project:${pid}`, target: tid, kind: "contains" });
-      if (t.assigneeId) {
-        const aid = `member:${t.assigneeId.toString()}`;
+      // Round-34: link EVERY assignee to the ticket.
+      const assigneeOids = (t.assigneeIds ?? []).length
+        ? (t.assigneeIds ?? [])
+        : t.assigneeId
+          ? [t.assigneeId]
+          : [];
+      for (const aidOid of assigneeOids) {
+        const aid = `member:${aidOid.toString()}`;
         links.push({ source: aid, target: tid, kind: "assigned" });
         const row = memberScore.get(aid);
         if (row) row.assigned += 1;

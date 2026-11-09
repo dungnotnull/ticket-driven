@@ -31,6 +31,9 @@ export function objectDownloadUrl(key: string): string {
   return `/api/files/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+/** Round-34 @-mention candidate (project members only). */
+export type MentionCandidate = { id: string; name: string; email: string };
+
 interface RichTextEditorProps {
   /** Current HTML value (controlled; used as the initial document). */
   value: string;
@@ -49,6 +52,10 @@ interface RichTextEditorProps {
   /** Fires for every object key this editor session uploads (orphan cleanup
    * runs on dialog cancel - the server only deletes UNREFERENCED keys). */
   onMediaKeyUploaded?: (key: string) => void;
+  /** Round-34: when set, typing "@" opens the member autocomplete overlay
+   * (arrow keys / click to insert `@Name `). Server scans are authoritative;
+   * this is pure UX sugar. */
+  mentionCandidates?: MentionCandidate[];
 }
 
 /**
@@ -71,11 +78,65 @@ export function RichTextEditor({
   className,
   maxImages = MAX_EDITOR_IMAGES,
   onMediaKeyUploaded,
+  mentionCandidates,
 }: RichTextEditorProps) {
   const { t } = useLang();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<Editor | null>(null);
+
+  /* -------- round-34 @-mention autocomplete (Facebook-style) -------- */
+  type MentionState = { query: string; from: number; to: number } | null;
+  const [mention, setMention] = useState<MentionState>(null);
+  const [mentionIdx, setMentionIdx] = useState(0);
+
+  const mentionMatches = (() => {
+    if (!mention || !mentionCandidates?.length) return [];
+    const q = mention.query.toLowerCase();
+    const scored = mentionCandidates.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q),
+    );
+    // First-word (>=3 chars) match like the server-scan logic, e.g. "Alex".
+    const first = mentionCandidates.filter((m) => {
+      const firstWord = m.name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+      return q.length >= 3 && firstWord.startsWith(q);
+    });
+    const seen = new Set<string>();
+    return [...scored, ...first].filter((m) => !seen.has(m.id) && seen.add(m.id)).slice(0, 6);
+  })();
+
+  function detectMention(editor: Editor) {
+    if (!mentionCandidates?.length) return setMention(null);
+    const { from, to } = editor.state.selection;
+    if (from !== to) return setMention(null);
+    const start = Math.max(0, from - 40);
+    const textBefore = editor.state.doc.textBetween(start, from, "\n", "\u0000");
+    const match = /(?:^|[\s>])@([^\s@]{0,30})$/.exec(textBefore);
+    if (!match) return setMention(null);
+    const query = match[1];
+    const atPos = from - query.length - 1;
+    setMention({ query, from: atPos, to: from });
+    setMentionIdx(0);
+  }
+
+  const insertMention = useCallback(
+    (candidate: MentionCandidate) => {
+      const current = editorRef.current;
+      if (!current || !mention) return;
+      current
+        .chain()
+        .focus()
+        .insertContentAt(
+          { from: mention.from, to: mention.to },
+          `@${candidate.name} `,
+        )
+        .run();
+      setMention(null);
+    },
+    [mention],
+  );
 
   function imageCount(target: Editor): number {
     return target.getHTML().match(/<img\b/gi)?.length ?? 0;
@@ -180,8 +241,32 @@ export function RichTextEditor({
     onUpdate: ({ editor: current }) => {
       const isEmpty = current.isEmpty;
       onChange(isEmpty ? "" : current.getHTML(), isEmpty);
+      detectMention(current);
     },
   });
+
+  /* Keyboard support for the mention overlay (arrow keys + Enter/Tab/Esc). */
+  useEffect(() => {
+    if (!editor || !mention || mentionMatches.length === 0) return;
+    const dom = editor.view.dom;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setMentionIdx((i) => (i + 1) % mentionMatches.length);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setMentionIdx((i) => (i - 1 + mentionMatches.length) % mentionMatches.length);
+      } else if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        insertMention(mentionMatches[mentionIdx] ?? mentionMatches[0]);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setMention(null);
+      }
+    };
+    dom.addEventListener("keydown", handler, true);
+    return () => dom.removeEventListener("keydown", handler, true);
+  }, [editor, mention, mentionIdx, mentionMatches, insertMention]);
 
   useEffect(() => {
     if (editor && disabled !== undefined) editor.setEditable(!disabled);
@@ -234,7 +319,7 @@ export function RichTextEditor({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-surface transition-colors focus-within:border-border-strong",
+        "relative rounded-lg border border-border bg-surface transition-colors focus-within:border-border-strong",
         className,
       )}
     >
@@ -279,6 +364,38 @@ export function RichTextEditor({
         )}
       </div>
       <EditorContent editor={editor} />
+      {/* @-mention autocomplete overlay (project members only, round-34). */}
+      {mention && mentionMatches.length > 0 && (
+        <div
+          className="absolute z-30 left-2 right-2 top-8 max-h-44 overflow-y-auto rounded-lg border border-border bg-surface-2 py-1 shadow-xl scroll-thin-xs"
+          data-testid="mention-menu"
+        >
+          <p className="px-2.5 pb-1 text-[10.5px] text-muted">{t("notif.at")}</p>
+          {mentionMatches.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(e) => {
+                e.preventDefault(); // keep editor selection
+                insertMention(m);
+              }}
+              onMouseEnter={() => setMentionIdx(i)}
+              data-testid={`mention-option-${m.id}`}
+              className={cn(
+                "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors",
+                i === mentionIdx ? "bg-surface-2-strong text-foreground" : "text-foreground/90",
+              )}
+            >
+              <span className="size-5 shrink-0 rounded-full bg-primary/15 text-center text-[10px] leading-5 text-primary">
+                {m.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="truncate font-medium">{m.name}</span>
+              <span className="truncate text-[10.5px] text-muted">{m.email}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <input
         ref={fileRef}
         type="file"

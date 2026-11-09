@@ -1,12 +1,13 @@
 import { Types } from "mongoose";
 import { UserModel, TicketModel, ProjectModel } from "@/lib/models";
-import type { ActivityType, ColumnKey, Priority, TicketDTO } from "@/lib/types";
+import type { ActivityType, ColumnKey, NotificationType, Priority, TicketDTO } from "@/lib/types";
 import { PRIORITY_LABELS } from "@/lib/types";
 import { serializeTicket, type LeanTicket } from "@/lib/serialize";
 import { ApiError, badRequest, notFound } from "@/lib/api";
 import { getProjectAccess } from "@/lib/rbac";
 import type { SessionUser } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
+import { pushNotifications, dispatchCommentNotifications } from "@/lib/services/notifications";
 import { escapeRegExp } from "@/lib/utils";
 import {
   collectTicketStorageKeys,
@@ -101,15 +102,32 @@ export async function getTicketOrThrow(id: string): Promise<LeanTicket> {
   return ticket;
 }
 
-/** Assignee must be an active member of the ticket's project. */
-function assertAssignee(
+/** Every assignee must be an active member of the ticket's project. */
+function assertAssignees(
   projectMembers: Array<{ userId: unknown }>,
-  assigneeId: string | null | undefined,
+  assigneeIds: string[],
 ) {
-  if (!assigneeId) return;
-  if (!ID_REGEX.test(assigneeId)) throw badRequest("Invalid assignee.");
-  const ok = projectMembers.some((m) => String(m.userId) === assigneeId);
-  if (!ok) throw badRequest("The assignee must be a member of this project.");
+  for (const id of assigneeIds) {
+    if (!id) continue;
+    if (!ID_REGEX.test(id)) throw badRequest("Invalid assignee.");
+    const ok = projectMembers.some((m) => String(m.userId) === id);
+    if (!ok) throw badRequest("The assignee must be a member of this project.");
+  }
+}
+
+/** Full-replacement semantics: prefer the list; the legacy single field maps
+ *  to a one-element list (null -> empty). Dedup + cap 10. */
+function normalizeAssigneeIds(
+  input: { assigneeId?: string | null; assigneeIds?: string[] },
+): string[] {
+  const list = Array.isArray(input.assigneeIds) ? input.assigneeIds : input.assigneeId ? [input.assigneeId] : [];
+  return [...new Set(list.filter(Boolean))].slice(0, 10);
+}
+
+/** Fetch the project name for notification payloads (cheap projection). */
+async function projectNameOf(projectId: Types.ObjectId): Promise<string> {
+  const row = await ProjectModel.findById(projectId).select("name").lean();
+  return (row as unknown as { name?: string } | null)?.name ?? "";
 }
 
 /** Load a single ticket (read-level access enforced). */
@@ -135,7 +153,11 @@ export async function listTickets(  user: SessionUser,
   await connectDB();
   const { project } = await getProjectAccess(params.projectId, "read", user);
   const filter: Record<string, unknown> = { projectId: project._id };
-  if (params.assigneeId) filter.assigneeId = params.assigneeId;
+  // Round-34: a ticket is listed under ANY of its assignees (multi).
+  if (params.assigneeId) {
+    if (params.assigneeId === "none") filter.assigneeIds = { $size: 0 };
+    else filter.assigneeIds = new ObjectId(params.assigneeId);
+  }
   if (params.status) filter.status = params.status;
   const docs = (await TicketModel.find(filter)
     .sort({ order: 1, createdAt: 1 })
@@ -155,7 +177,8 @@ export async function createTicket(
     .select("members")
     .lean())?.members as unknown as Array<{ userId: unknown }> | undefined;
 
-  assertAssignee(members ?? [], input.assigneeId);
+  const assigneeIds = normalizeAssigneeIds(input);
+  assertAssignees(members ?? [], assigneeIds);
   if (input.dueDate && Number.isNaN(Date.parse(input.dueDate))) {
     throw badRequest("Invalid due date.");
   }
@@ -168,7 +191,9 @@ export async function createTicket(
     description: input.description ?? "",
     status,
     order: await nextOrder(project._id, status),
-    assigneeId: input.assigneeId ? new ObjectId(input.assigneeId) : undefined,
+    // Multi-assignee source of truth + legacy mirror (first entry).
+    assigneeIds: assigneeIds.map((id) => new ObjectId(id)),
+    assigneeId: assigneeIds[0] ? new ObjectId(assigneeIds[0]) : undefined,
     priority: input.priority,
     dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
     createdById: new ObjectId(user.id),
@@ -228,6 +253,17 @@ export async function createTicket(
     })),
   } as never);
 
+  // Round-34 notification: ticket created in a project -> members hear about it.
+  void pushNotifications({
+    projectId: project._id.toString(),
+    projectName: project.name,
+    actorId: user.id,
+    actorName: user.name,
+    type: "assignment",
+    ticketId: created._id.toString(),
+    ticketTitle: input.title,
+  }).catch(() => undefined);
+
   const lean = (await TicketModel.findById(created._id)
     .lean()) as unknown as LeanTicket;
   return serializeTicket(lean);
@@ -251,11 +287,9 @@ export async function updateTicket(
   const members = (await ProjectModel.findById(project._id)
     .select("members")
     .lean())?.members as unknown as Array<{ userId: unknown }> | undefined;
-  if (input.assigneeId !== undefined) {
-    assertAssignee(members ?? [], input.assigneeId);
-  }
-
   const set: Record<string, unknown> = {};
+  /** Round-34: set when the assignee list changed (entry + notice below). */
+  let assigneeChange: { nextList: string[]; oldList: Set<string> } | null = null;
   if (input.title !== undefined) {
     // Same-title (case/whitespace drift) renames are a no-op, not a conflict.
     if (input.title.trim().toLowerCase() !== ticket.title.trim().toLowerCase()) {
@@ -268,8 +302,20 @@ export async function updateTicket(
   if (input.dueDate !== undefined) {
     set.dueDate = input.dueDate ? new Date(input.dueDate) : null;
   }
-  if (input.assigneeId !== undefined) {
-    set.assigneeId = input.assigneeId ? new ObjectId(input.assigneeId) : null;
+  if (input.assigneeIds !== undefined || input.assigneeId !== undefined) {
+    // Full replacement of the assignee list (multi, round-34). Entry/notice
+    // work happens further down (after `entries`/`now` exist).
+    const oldList = new Set(
+      (ticket.assigneeIds ?? []).map((a) => a.toString()).concat(
+        ticket.assigneeId ? [ticket.assigneeId.toString()] : [],
+      ),
+    );
+    const nextList = normalizeAssigneeIds(input);
+    if (nextList.length !== oldList.size || nextList.some((id) => !oldList.has(id))) {
+      set.assigneeIds = nextList.map((id) => new ObjectId(id));
+      set.assigneeId = nextList[0] ? new ObjectId(nextList[0]) : null;
+      assigneeChange = { nextList, oldList };
+    }
   }
 
   const now = new Date();
@@ -278,6 +324,46 @@ export async function updateTicket(
   /** Keys dropped by this update -> cleaned AFTER the write succeeds. */
   let removedDescriptionMedia: string[] = [];
   let removedAttachmentMedia: string[] = [];
+
+  if (assigneeChange) {
+    // Project membership guard for the new list (throws before any write).
+    assertAssignees(members ?? [], assigneeChange.nextList);
+    const { nextList, oldList } = assigneeChange;
+    const added = nextList.filter((id) => !oldList.has(id));
+    const removed = [...oldList].filter((id) => !nextList.includes(id));
+    const nameOf = async (id: string) =>
+      (await UserModel.findById(id).select("name").lean() as unknown as { name?: string } | null)?.name ?? "a member";
+    const names = await Promise.all(nextList.map(nameOf));
+    entries.push({
+      type: "edited",
+      ...actorEntries(user),
+      note:
+        nextList.length === 0
+          ? "unassigned this ticket"
+          : `assigned this ticket to ${names.join(", ")}`,
+      createdAt: now,
+    });
+    if (removed.length > 0) {
+      entries.push({
+        type: "edited",
+        ...actorEntries(user),
+        note: `removed ${removed.length === 1 ? "1 assignee" : `${removed.length} assignees`} from this ticket`,
+        createdAt: now,
+      });
+    }
+    // Newly assigned members hear about it (actor excluded automatically).
+    if (added.length > 0) {
+      void pushNotifications({
+        projectId: project._id.toString(),
+        projectName: project.name,
+        actorId: user.id,
+        actorName: user.name,
+        type: "assignment",
+        ticketId: ticket._id.toString(),
+        ticketTitle: ticket.title,
+      }).catch(() => undefined);
+    }
+  }
 
   // Granular change log: every meaningful field change gets its own entry.
   if (input.title !== undefined && input.title !== ticket.title) {
@@ -325,23 +411,6 @@ export async function updateTicket(
       });
     }
   }
-  if (input.assigneeId !== undefined) {
-    const oldId = ticket.assigneeId ? String(ticket.assigneeId) : null;
-    const newId = input.assigneeId || null;
-    if (newId !== oldId) {
-      let assigneeName: string | null = null;
-      if (newId) {
-        const found = await UserModel.findById(newId).select("name").lean();
-        assigneeName = (found as unknown as { name?: string } | null)?.name ?? "a member";
-      }
-      entries.push({
-        type: "edited",
-        ...actorEntries(user),
-        note: newId ? `assigned this ticket to ${assigneeName}` : "unassigned this ticket",
-        createdAt: now,
-      });
-    }
-  }
 
   if (input.status && input.status !== ticket.status) {
     set.status = input.status;
@@ -353,6 +422,17 @@ export async function updateTicket(
       to: input.status,
       createdAt: now,
     });
+    // Round-34: status moves notify the other project members.
+    void pushNotifications({
+      projectId: project._id.toString(),
+      projectName: project.name,
+      actorId: user.id,
+      actorName: user.name,
+      type: "status_change",
+      ticketId: ticket._id.toString(),
+      ticketTitle: input.title ?? ticket.title,
+      statusTo: input.status,
+    }).catch(() => undefined);
   }
 
   // Full-replace attachment list when the client sends one.
@@ -554,6 +634,24 @@ export async function reviewTicket(
     },
     { returnDocument: "after" },
   ).lean()) as unknown as LeanTicket;
+
+  // Round-34: review decisions notify the project members.
+  const feedbackType: NotificationType =
+    input.review === "approved"
+      ? "feedback_approved"
+      : input.review === "changes_requested"
+        ? "feedback_changes"
+        : "feedback_requested";
+  void pushNotifications({
+    projectId: ticket.projectId.toString(),
+    projectName: await projectNameOf(ticket.projectId),
+    actorId: user.id,
+    actorName: user.name,
+    type: feedbackType,
+    ticketId: ticket._id.toString(),
+    ticketTitle: ticket.title,
+  }).catch(() => undefined);
+
   return serializeTicket(updated);
 }
 
@@ -582,6 +680,19 @@ export async function addComment(
     },
     { returnDocument: "after" },
   ).lean()) as unknown as LeanTicket;
+
+  // Round-34: comments notify project members; @-mentions get their own
+  // (higher-priority) notification instead of the generic comment one.
+  void dispatchCommentNotifications({
+    projectId: ticket.projectId.toString(),
+    projectName: await projectNameOf(ticket.projectId),
+    actorId: user.id,
+    actorName: user.name,
+    ticketId: ticket._id.toString(),
+    ticketTitle: ticket.title,
+    commentHtml: input.body,
+  }).catch(() => undefined);
+
   return serializeTicket(updated);
 }
 

@@ -96,6 +96,7 @@ async function buildOrgStats(user: SessionUser): Promise<OrgStatsDTO> {
     status: string;
     priority: string;
     assigneeId: Types.ObjectId | null;
+    assigneeIds?: Types.ObjectId[];
     dueDate: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -200,12 +201,18 @@ async function buildOrgStats(user: SessionUser): Promise<OrgStatsDTO> {
 
   const assigneeMap = new Map<string, { name: string; total: number; done: number }>();
   for (const t of tickets) {
-    if (!t.assigneeId) continue;
-    const key = String(t.assigneeId);
-    const row = assigneeMap.get(key) ?? { name: key, total: 0, done: 0 };
-    row.total += 1;
-    if (t.status === "done") row.done += 1;
-    assigneeMap.set(key, row);
+    // Round-34: count EVERY assignee (legacy single field mirrors list[0]).
+    const ids = (t.assigneeIds ?? []).length
+      ? (t.assigneeIds ?? []).map(String)
+      : t.assigneeId
+        ? [String(t.assigneeId)]
+        : [];
+    for (const key of ids) {
+      const row = assigneeMap.get(key) ?? { name: key, total: 0, done: 0 };
+      row.total += 1;
+      if (t.status === "done") row.done += 1;
+      assigneeMap.set(key, row);
+    }
   }
   // resolve names via project members
   const nameById = new Map<string, string>();

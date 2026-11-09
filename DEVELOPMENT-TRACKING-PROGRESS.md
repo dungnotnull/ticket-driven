@@ -50,16 +50,24 @@ per-round detail lives in the round gates of `IMPLEMENTATION-NOTES.md`.
 | 2026-11-09, round 28b | DONE | ROOT CAUSE of the Vercel bounce: shared edge cache served the SIGNED-OUT /dashboard render (embedded meta redirect to /login) because the document lacked Vary: Cookie - fixed by Cache-Control: private, no-store on all protected paths in proxy.ts; verified locally (no-store header + dashboard renders with cards on document loads), e2e 23/23 | src/proxy.ts |
 | 2026-11-09, round 28e | DONE | REAL root cause: protected routes were prerendered as a cookie-less redirect('/login') shell at BUILD time (prod evidence: fresh key /projects/<id> = x-vercel-cache PRERENDER with embedded meta redirect). Fixed per the cacheComponents auth pattern: every session-gated page/layout now streams behind <Suspense> (skeleton shell prerendered, per-user content per request); build emits ◐ Partial Prerender for all protected routes; prod-sim verified (document loads + root bouncer) and e2e 23/23 | (app) layout + 5 pages + root page, proxy reverted to minimal |
 | 2026-11-09, round 29 | DONE | NETLIFY adoption + upload proof: B2 keyID redacted from notes (Netlify secrets scan); bucket CORS updated for https://ticket-driven.netlify.app; real-browser probe on the live Netlify site: login, board stream, ticket modal, fixture.png upload chip via presign+browser PUT (6/6, 0 console errors); Upload architecture documented as platform-agnostic | IMPLEMENTATION-NOTES.md, .qa probes (uncommitted) |
+| 2026-11-08, rounds 30 | DONE | Board fetches fully parallel - cold serverless budget headroom for the streaming shell (Netlify 10s sync function cap) | services (board page data load) |
+| 2026-11-08, round 31 | DONE | Mongoose buffering-timeout fix: `getSessionUser`/`requireSessionUser` now `await connectDB()` so session reads can never run against an unconnected pool (the 10s MongooseError seen on Vercel + Netlify) | lib/auth.ts |
+| 2026-11-08, round 32 | DONE | Attachments visible READ-ONLY to every role (client members see thumbnails; only admin/team upload) + ticket modal split 40/60 with the review/questions column carrying the heavy content | ticket-modal.tsx, board-workspace.tsx |
+| 2026-11-08, rounds 33 + 33b | DONE | Unsaved-changes guard (lodash isEqual pristine compare) on ticket + project edit dialogs AND the create-project dialog with the 3-button ask (Save / Keep editing / Discard changes); Tiptap mount-normalization baseline fix (first onChange re-seats pristine so zero-interaction dialogs never read dirty); ticket modal 90vh; probe_unsaved_guard 14/14 | ticket-modal.tsx, project-edit-dialog.tsx, projects-view.tsx, ui/rich-text.tsx |
+| 2026-11-09, round 34 | DONE | Multi-assignee tickets (one ticket -> many members, any role; list is the source of truth with the legacy single field kept as mirror) + @-mention autocomplete (project members only, email/name, Facebook-style) in the comment editor + lightweight REALTIME notifications: server pushes `comment | mention | status_change | assignment | feedback_requested | feedback_approved | feedback_changes` to every project member EXCEPT the actor and global admins (admins render no bell entirely); header bell (beside the avatar) polls a tiny unread-count projection visibility-aware ~20s; dropdown tabs Unread/All with per-item mark read/unread, mark-all, and click-through that navigates to the project and AUTO-OPENS the ticket modal via `?ticket=<id>` deep link; Netlify scheduled function deletes notifications seen >30 days every Monday 00:00 UTC; i18n EN/JA for all notification sentences and bell chrome. GATE: tsc 0 / eslint 0 -> probe_round34 27/27 (assignment reached sophia, status_change reached alex but not the actor, mark-all/unread toggles, deep link auto-open, mention insert + mention notification, admin exclusion, 0 console errors) -> e2e 23/23 -> probe_responsive 17/17 (bell beside avatar, 390px/768px no overflow) -> reseed | types.ts, models.ts, serialize.ts, validation.ts, services/tickets.ts, services/notifications.ts (NEW), api/notifications (NEW), netlify/functions/notifications-cleanup.mts (NEW), netlify.toml (NEW), notifications-bell.tsx (NEW), app-shell.tsx, rich-text.tsx, ticket-modal.tsx, board-workspace.tsx, table-view.tsx, stats.ts, knowledge.ts, page.tsx (board), dictionary.ts, avatar.tsx, probe_round34.py (NEW)  |
 
 ## LIMITATION (current, acknowledged)
 
 - **Search & filtering are client-side.** Home search and the board
   FilterBar operate over data the page already holds - fine at demo scale;
   large projects (hundreds of tickets) need server-side search + pagination.
-- **No realtime updates.** No websockets/SSE: collaborator changes appear on
-  navigation/refresh (router.refresh / re-fetch), not live.
+- **No true push realtime.** No websockets/SSE (Netlify's 10s sync function
+  cap); round-34 notifications close the gap with visibility-aware ~20s
+  polling of an unread-count projection, and board content itself still
+  appears on navigation/refresh.
 - **No email flows.** Email verification was intentionally skipped (MVP
-  choice); password reset, invites-by-email and notifications do not exist.
+  choice); password reset and invites-by-email do not exist. In-app
+  notifications shipped in round 34 (bell + mark read/unread + deep link).
 - **Uploads require B2 (or R2) configuration.** Cloud-only storage means a fresh
   deployment without storage creds has attachments disabled by design; the demo
   deployment now RUNS on Backblaze B2 (verified live) while repo docs stay

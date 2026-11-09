@@ -2,6 +2,7 @@ import { avatarHue, initials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const AVATAR_SIZES = {
+  xs: 20,
   sm: 24,
   md: 28,
   lg: 32,
@@ -26,7 +27,8 @@ export function Avatar({ name, size = "md", className }: AvatarProps) {
         backgroundColor: `hsl(${avatarHue(name)}, 45%, 40%)`,
       }}
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full text-[10px] text-white ring-1 ring-inset ring-border",
+        "flex shrink-0 items-center justify-center rounded-full text-white ring-1 ring-inset ring-border",
+        size === "xs" ? "text-[8px]" : "text-[10px]",
         className
       )}
     >

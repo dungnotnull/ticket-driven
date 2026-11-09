@@ -171,7 +171,10 @@ export const createTicketSchema = z.object({
     .max(140),
   description: z.string().trim().max(20_000).optional().default("").transform(stripDangerousHtml),
   status: columnSchema.optional().default("todo"),
+  /** Legacy single-assignee field, folded into assigneeIds service-side. */
   assigneeId: nullableObjectId,
+  /** Round-34: one ticket, MANY assignees across member roles. */
+  assigneeIds: z.array(objectIdSchema).max(10).optional(),
   priority: prioritySchema.optional().default("medium"),
   dueDate: isoDate.nullable().optional(),
   attachments: z.array(attachmentInputSchema).max(MAX_TOTAL_ATTACHMENTS).optional().default([]),
@@ -189,7 +192,10 @@ export const updateTicketSchema = z.object({
     .optional()
     .transform((value) => (value === undefined ? undefined : stripDangerousHtml(value))),
   status: columnSchema.optional(),
+  /** Legacy single-assignee field, folded into assigneeIds service-side. */
   assigneeId: nullableObjectId,
+  /** Round-34: full replacement of the assignee list. */
+  assigneeIds: z.array(objectIdSchema).max(10).optional(),
   priority: prioritySchema.optional(),
   dueDate: isoDate.nullable().optional(),
   /** Full replacement of the attachment list (validated per entry). */
@@ -274,6 +280,21 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
+
+/** Round-34 bell actions (single compact endpoint). */
+export const createNotificationActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("seen"),
+    id: objectIdSchema,
+    seen: z.boolean(),
+  }),
+  z.object({ action: z.literal("seen-all") }),
+  z.object({
+    action: z.literal("purge"),
+    days: z.number().int().min(1).max(365).optional(),
+  }),
+]);
+export type NotificationActionInput = z.infer<typeof createNotificationActionSchema>;
 export type MoveInput = z.infer<typeof moveSchema>;
 export type ReviewInput = z.infer<typeof reviewSchema>;
 export type CommentInput = z.infer<typeof commentSchema>;

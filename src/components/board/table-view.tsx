@@ -53,7 +53,9 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
 
   const assigneeOptions = useMemo(() => {
     const ids = new Set<string>();
-    for (const ticket of tickets) if (ticket.assigneeId) ids.add(ticket.assigneeId);
+    for (const ticket of tickets) {
+      for (const id of ticket.assigneeIds ?? []) ids.add(id);
+    }
     return Array.from(ids)
       .map((id) => ({ id, name: memberById.get(id)?.name ?? t("board.unknownUser") }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -64,8 +66,8 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
       assignee === "all"
         ? tickets
         : assignee === "unassigned"
-          ? tickets.filter((t) => !t.assigneeId)
-          : tickets.filter((t) => t.assigneeId === assignee);
+          ? tickets.filter((t) => (t.assigneeIds ?? []).length === 0)
+          : tickets.filter((t) => (t.assigneeIds ?? []).includes(assignee));
     const factor = sortDir === "asc" ? 1 : -1;
     const value = (ticket: TicketDTO): string | number => {
       switch (sortKey) {
@@ -77,8 +79,14 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
           const order: Record<Priority, number> = { low: 0, medium: 1, high: 2, urgent: 3 };
           return order[ticket.priority];
         }
-        case "assignee":
-          return ticket.assigneeId ? (memberById.get(ticket.assigneeId)?.name ?? "").toLowerCase() : "";
+        case "assignee": {
+          const names = (ticket.assigneeIds ?? [])
+            .map((id) => memberById.get(id)?.name ?? "")
+            .filter(Boolean)
+            .sort()
+            .join(", ");
+          return names.toLowerCase();
+        }
         case "updatedAt":
           return new Date(ticket.updatedAt).getTime();
       }
@@ -152,9 +160,10 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
           </thead>
           <tbody>
             {rows.map((ticket) => {
-              const rowAssignee = ticket.assigneeId
-                ? memberById.get(ticket.assigneeId)
-                : null;
+              // Round-34: avatar stack, all assignees.
+              const rowAssignees = (ticket.assigneeIds ?? []).map((id) =>
+                memberById.get(id),
+              ).filter((m): m is { name: string; email: string; role: string } => Boolean(m));
               return (
                 <tr
                   key={ticket.id}
@@ -197,10 +206,22 @@ export function TableView({ tickets, memberById, canWrite, onOpen }: TableViewPr
                     </Badge>
                   </td>
                   <td className="truncate px-4 py-2.5 align-middle text-[12px] text-muted">
-                    {rowAssignee ? (
+                    {rowAssignees.length > 0 ? (
                       <span className="flex items-center gap-1.5">
-                        <Avatar name={rowAssignee.name} email={rowAssignee.email} size="sm" />
-                        <span className="truncate">{rowAssignee.name}</span>
+                        <span className="flex -space-x-1.5">
+                          {rowAssignees.slice(0, 3).map((m, i) => (
+                            <Avatar
+                              key={m.name + i}
+                              name={m.name}
+                              email={m.email}
+                              size="sm"
+                              className="ring-2 ring-surface"
+                            />
+                          ))}
+                        </span>
+                        <span className="truncate">
+                          {rowAssignees.map((m) => m.name).join(", ")}
+                        </span>
                       </span>
                     ) : (
                       <span className="italic">{t("ticket.unassigned")}</span>
