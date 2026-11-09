@@ -624,6 +624,8 @@ export function TicketModal({
                     <ActivityTimeline
                       activity={ticket!.activity}
                       memberById={memberById}
+                      ticketId={ticket!.id}
+                      myUserId={myUserId}
                     />
                   </div>
 
@@ -643,6 +645,7 @@ export function TicketModal({
                   projectId={project.id}
                   minHeight="150px"
                   mentionCandidates={assigneeList}
+                  mentionExcludeId={myUserId ?? undefined}
                   onMediaKeyUploaded={(key) => sessionMediaRef.current.push(key)}
                 />
                     <div className="flex justify-end">

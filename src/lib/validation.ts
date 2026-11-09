@@ -281,6 +281,12 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 
+/** Round-35 heart toggle on a reply/feedback activity entry. */
+export const createHeartToggleSchema = z.object({
+  activityId: objectIdSchema,
+});
+export type HeartToggleInput = z.infer<typeof createHeartToggleSchema>;
+
 /** Round-34 bell actions (single compact endpoint). */
 export const createNotificationActionSchema = z.discriminatedUnion("action", [
   z.object({

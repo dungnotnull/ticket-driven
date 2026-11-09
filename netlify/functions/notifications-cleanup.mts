@@ -8,7 +8,9 @@ import mongoose from "mongoose";
  *
  * Configure - netlify.toml: [functions."notifications-cleanup"] schedule = "0 0 * * 1"
  */
-export default async (req: Request, context: { waitUntil: (p: Promise<unknown>) => void }) => {
+// Netlify injects (req, context); neither is needed here - the signature is
+// intentionally narrowed so the repo lint stays at zero warnings.
+const handler = async () => {
   const uri = process.env.MONGODB_URI;
   const db = process.env.MONGODB_DB || "kanban";
   if (!uri) {
@@ -32,6 +34,8 @@ export default async (req: Request, context: { waitUntil: (p: Promise<unknown>) 
   const deleted = await run();
   return new Response(JSON.stringify({ ok: true, deleted }), { status: 200 });
 };
+
+export default handler;
 
 export const config = {
   // Every Monday 00:00 UTC ("0:00 thứ 2 hàng tuần").

@@ -86,6 +86,7 @@ export interface LeanTicket {
     note?: string;
     review?: string;
     attachmentName?: string;
+    hearts?: Array<{ userId?: Types.ObjectId | null; at?: Date }>;
     createdAt: Date;
   }>;
   review?: {
@@ -198,6 +199,11 @@ export function serializeTicket(doc: LeanTicket): TicketDTO {
     note: entry.note ?? "",
     review: pickEnumOrNull(entry.review, REVIEW_STATUSES),
     attachmentName: entry.attachmentName ?? "",
+    // Round-35 hearts: one per user (ids); the client derives count + "mine".
+    hearts: (entry.hearts ?? [])
+      .map((h) => h.userId)
+      .filter(Boolean)
+      .map((id) => id!.toString()),
     createdAt: iso(entry.createdAt),
   }));
 

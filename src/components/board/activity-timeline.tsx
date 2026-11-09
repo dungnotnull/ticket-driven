@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import {
   CircleAlert,
   CheckCircle2,
+  Heart,
   MessageSquare,
   Paperclip,
   Pencil,
@@ -12,6 +14,8 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { looksLikeHtml } from "@/components/ui/rich-text";
 import { RichNote } from "@/components/ui/rich-note";
+import { apiFetch } from "@/lib/fetcher";
+import { toast } from "sonner";
 import { useLang } from "@/lib/i18n";
 import type { DictKey } from "@/lib/i18n/dictionary";
 import { cn, initials, timeAgo } from "@/lib/utils";
@@ -32,10 +36,19 @@ const TYPE_ICON: Record<ActivityType, { icon: React.ReactNode; tint: string }> =
 interface ActivityTimelineProps {
   activity: ActivityDTO[];
   memberById: Map<string, { name: string; email: string; role: string }>;
+  /** Round-35: ticket id used by the heart-toggle API. */
+  ticketId: string;
+  /** Round-35: current viewer id - decides the "mine" highlight. */
+  myUserId?: string | null;
 }
 
 /** GitHub-style chronological activity feed, newest first. */
-export function ActivityTimeline({ activity, memberById }: ActivityTimelineProps) {
+export function ActivityTimeline({
+  activity,
+  memberById,
+  ticketId,
+  myUserId,
+}: ActivityTimelineProps) {
   const { t } = useLang();
   const memberNames = [...memberById.values()].map((m) => m.name);
   const sorted = [...activity].sort(
@@ -56,7 +69,11 @@ export function ActivityTimeline({ activity, memberById }: ActivityTimelineProps
         const meta = TYPE_ICON[entry.type] ?? TYPE_ICON.edited;
         const member = entry.actorId ? (memberById.get(entry.actorId) ?? null) : null;
         const displayName = member?.name ?? entry.actorName ?? t("act.someone");
-        return <li key={entry.id}>{renderEntry(entry, meta, displayName, member, t, memberNames)}</li>;
+        return (
+          <li key={entry.id}>
+            {renderEntry(entry, meta, displayName, member, t, memberNames, ticketId, myUserId)}
+          </li>
+        );
       })}
     </ol>
   );
@@ -71,6 +88,14 @@ function noteIsSentence(entry: ActivityDTO): boolean {
   );
 }
 
+/** Round-35: replies (comments) and feedback notes accept hearts. */
+function entryHeartable(entry: ActivityDTO): boolean {
+  return (
+    entry.type === "comment" ||
+    (entry.type === "review" && (entry.note ?? "").trim() !== "")
+  );
+}
+
 function renderEntry(
   entry: ActivityDTO,
   meta: { icon: React.ReactNode; tint: string },
@@ -78,6 +103,8 @@ function renderEntry(
   member: { name: string; email: string; role: string } | null,
   t: Translate,
   memberNames: string[],
+  ticketId: string,
+  myUserId?: string | null,
 ) {
   const sentence = noteIsSentence(entry);
   const action = sentence
@@ -122,7 +149,89 @@ function renderEntry(
             )}
           </blockquote>
         )}
+        {entryHeartable(entry) && (
+          <HeartButton
+            ticketId={ticketId}
+            entryId={entry.id}
+            initialCount={(entry.hearts ?? []).length}
+            initialMine={Boolean(
+              myUserId && (entry.hearts ?? []).includes(myUserId),
+            )}
+            t={t}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+interface HeartButtonProps {
+  ticketId: string;
+  entryId: string;
+  initialCount: number;
+  initialMine: boolean;
+  t: Translate;
+}
+
+/**
+ * Facebook-style heart: every project member may heart a reply/feedback once;
+ * clicking again removes their own heart. Optimistic UI, server count wins.
+ */
+function HeartButton({
+  ticketId,
+  entryId,
+  initialCount,
+  initialMine,
+  t,
+}: HeartButtonProps) {
+  const [count, setCount] = useState(initialCount);
+  const [mine, setMine] = useState(initialMine);
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    const nextMine = !mine;
+    setMine(nextMine);
+    setCount((c) => Math.max(0, c + (nextMine ? 1 : -1)));
+    try {
+      const res = await apiFetch<{ hearts: number; heartedByMe: boolean }>(
+        `/api/tickets/${ticketId}/hearts`,
+        { method: "POST", json: { activityId: entryId } },
+      );
+      setCount(res.hearts);
+      setMine(res.heartedByMe);
+    } catch {
+      // Revert the optimistic flip on any failure.
+      setMine(!nextMine);
+      setCount((c) => Math.max(0, c + (nextMine ? -1 : 1)));
+      toast.error(nextMine ? t("heart.failAdd") : t("heart.failRemove"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1">
+      <button
+        type="button"
+        data-testid="heart-button"
+        data-mine={mine ? "true" : "false"}
+        disabled={busy}
+        onClick={toggle}
+        aria-label={mine ? t("heart.remove") : t("heart.add")}
+        aria-pressed={mine}
+        title={mine ? t("heart.remove") : t("heart.add")}
+        className={cn(
+          "press flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] transition-colors",
+          mine
+            ? "bg-danger/10 text-danger"
+            : "text-muted hover:bg-surface-2 hover:text-danger",
+        )}
+      >
+        <Heart size={13} className={mine ? "fill-danger" : undefined} />
+        {count > 0 && <span data-testid="heart-count">{count}</span>}
+      </button>
     </div>
   );
 }

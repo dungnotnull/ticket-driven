@@ -696,6 +696,75 @@ export async function addComment(
   return serializeTicket(updated);
 }
 
+/* ------------------------------ hearts ------------------------------ */
+
+export interface HeartToggleResult {
+  id: string;
+  hearts: number;
+  heartedByMe: boolean;
+}
+
+/**
+ * Round-35: Facebook-style heart on ONE reply (comment) or feedback (review
+ * note) activity entry. Toggle semantics: $addToSet keeps exactly ONE heart
+ * per user (the requirement), $pull removes it on the second click. Any
+ * project member (read level) may heart - including the entry's author.
+ */
+export async function toggleTicketHeart(
+  user: SessionUser,
+  ticketId: string,
+  activityId: string,
+): Promise<HeartToggleResult> {
+  await connectDB();
+  const ticket = await getTicketOrThrow(ticketId);
+  await getProjectAccess(ticket.projectId.toString(), "read", user);
+  if (!ID_REGEX.test(activityId)) throw badRequest("Invalid activity id.");
+
+  const entry = (ticket.activity ?? []).find((e) => String(e._id) === activityId);
+  if (!entry) throw notFound("That reply no longer exists.");
+  const heartable =
+    entry.type === "comment" ||
+    (entry.type === "review" && (entry.note ?? "").trim() !== "");
+  if (!heartable) throw badRequest("Only replies and feedback notes can receive hearts.");
+
+  const uid = new ObjectId(user.id);
+  const already = (entry.hearts ?? []).some(
+    (h) => h.userId && String(h.userId) === user.id,
+  );
+  if (already) {
+    await TicketModel.updateOne(
+      { _id: ticket._id },
+      { $pull: { "activity.$[a].hearts": { userId: uid } } },
+      { arrayFilters: [{ "a._id": entry._id }] },
+    );
+  } else {
+    // Race-safe atomic add: the element filter only matches while THIS user
+    // has no heart yet, so concurrent "heart" calls can never store two
+    // entries ($addToSet would compare the whole {userId, at} object and
+    // dedupe nothing when the timestamps differ).
+    await TicketModel.updateOne(
+      { _id: ticket._id },
+      { $push: { "activity.$[a].hearts": { userId: uid, at: new Date() } } },
+      { arrayFilters: [{ "a._id": entry._id, "a.hearts.userId": { $ne: uid } }] },
+    );
+  }
+
+  // Read the authoritative count back (cheap projection).
+  const fresh = (await TicketModel.findById(ticket._id).select("activity").lean()) as
+    | LeanTicket
+    | null;
+  const freshEntry = (fresh?.activity ?? []).find((e) => String(e._id) === activityId);
+  const userIds = (freshEntry?.hearts ?? [])
+    .map((h) => h.userId)
+    .filter(Boolean)
+    .map(String);
+  return {
+    id: activityId,
+    hearts: userIds.length,
+    heartedByMe: userIds.includes(user.id),
+  };
+}
+
 /* ------------------------------ delete ------------------------------ */
 
 export async function deleteTicket(

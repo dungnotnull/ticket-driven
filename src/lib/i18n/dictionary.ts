@@ -454,6 +454,12 @@ export const DICT = {
     ja: "このチケットは存在しないか、削除されました。",
   },
 
+  /* round-35: Facebook-style hearts on replies/feedback */
+  "heart.add": { en: "Send a heart", ja: "ハートを送る" },
+  "heart.remove": { en: "Remove your heart", ja: "ハートを外す" },
+  "heart.failAdd": { en: "Could not add the heart. Try again.", ja: "ハートを追加できませんでした。もう一度お試しください。" },
+  "heart.failRemove": { en: "Could not remove the heart. Try again.", ja: "ハートを削除できませんでした。もう一度お試しください。" },
+
   /* board background picker (Trello-style, admin/team) */
   "bg.button": { en: "Background", ja: "背景" },
   "bg.title": { en: "Board background", ja: "ボードの背景" },

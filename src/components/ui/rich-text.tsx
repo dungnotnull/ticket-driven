@@ -56,6 +56,9 @@ interface RichTextEditorProps {
    * (arrow keys / click to insert `@Name `). Server scans are authoritative;
    * this is pure UX sugar. */
   mentionCandidates?: MentionCandidate[];
+  /** Round-35: exclude THIS user id from the mention list (you cannot tag
+   * yourself; the server never notifies the actor anyway). */
+  mentionExcludeId?: string;
 }
 
 /**
@@ -79,6 +82,7 @@ export function RichTextEditor({
   maxImages = MAX_EDITOR_IMAGES,
   onMediaKeyUploaded,
   mentionCandidates,
+  mentionExcludeId,
 }: RichTextEditorProps) {
   const { t } = useLang();
   const [uploading, setUploading] = useState(false);
@@ -90,16 +94,21 @@ export function RichTextEditor({
   const [mention, setMention] = useState<MentionState>(null);
   const [mentionIdx, setMentionIdx] = useState(0);
 
+  // Round-35: you can never tag yourself - drop the current user first.
+  const mentionPool = (mentionCandidates ?? []).filter(
+    (m) => m.id !== mentionExcludeId,
+  );
+
   const mentionMatches = (() => {
-    if (!mention || !mentionCandidates?.length) return [];
+    if (!mention || !mentionPool.length) return [];
     const q = mention.query.toLowerCase();
-    const scored = mentionCandidates.filter(
+    const scored = mentionPool.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.email.toLowerCase().includes(q),
     );
     // First-word (>=3 chars) match like the server-scan logic, e.g. "Alex".
-    const first = mentionCandidates.filter((m) => {
+    const first = mentionPool.filter((m) => {
       const firstWord = m.name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
       return q.length >= 3 && firstWord.startsWith(q);
     });
@@ -108,7 +117,7 @@ export function RichTextEditor({
   })();
 
   function detectMention(editor: Editor) {
-    if (!mentionCandidates?.length) return setMention(null);
+    if (!mentionPool.length) return setMention(null);
     const { from, to } = editor.state.selection;
     if (from !== to) return setMention(null);
     const start = Math.max(0, from - 40);

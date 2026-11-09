@@ -105,6 +105,8 @@ export interface ActivityDTO {
   note: string;
   review: ReviewStatus | null;
   attachmentName: string;
+  /** Round-35: user ids that hearted this comment/feedback (one per user). */
+  hearts?: string[];
   createdAt: string;
 }
 

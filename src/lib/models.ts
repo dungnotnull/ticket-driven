@@ -41,6 +41,14 @@ export type {
 /* Schemas                                                             */
 /* ------------------------------------------------------------------ */
 
+const HeartSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    at: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false },
+) as Schema;
+
 const ActivitySchema = new Schema(
   {
     type: {
@@ -58,6 +66,8 @@ const ActivitySchema = new Schema(
     note: { type: String, default: "" },
     review: { type: String, enum: [...REVIEW_STATUSES] },
     attachmentName: { type: String, default: "" },
+    /** Round-35: Facebook-style hearts - ONE per user (toggle via $addToSet/$pull). */
+    hearts: { type: [HeartSchema], default: [] },
     createdAt: { type: Date, required: true, default: Date.now },
   },
   { _id: true },
