@@ -29,12 +29,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Documents (not RSC flights - those carry their own router headers and
+  // Vary correctly) get a UNIQUE internal cache key so the shared Vercel
+  // edge cache can never serve one user's render - including the
+  // signed-out `redirect("/login")` shell - to anyone else. The rewritten
+  // query stays invisible to the browser URL.
+  const isRscFlight =
+    request.headers.has("rsc") ||
+    request.headers.has("next-router-state-tree") ||
+    request.nextUrl.searchParams.has("_rsc");
+  if (!isRscFlight) {
+    const url = request.nextUrl.clone();
+    url.searchParams.set("_v", crypto.randomUUID());
+    return NextResponse.rewrite(url);
+  }
+
   const response = NextResponse.next();
-  // Authenticated documents must NEVER be edge-cached cross-user: the bare
-  // Next default is `public, max-age=0, must-revalidate` WITHOUT `Vary:
-  // Cookie`, so a render made for a signed-out visitor (the layout's
-  // redirect-to-login shell) can be poisoned into the shared edge cache and
-  // served to signed-in users as a 200 containing that meta redirect.
+  // Belt-and-suspenders: authenticated responses must never be shared.
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
