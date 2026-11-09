@@ -5,12 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
-import { debounce } from "lodash";
+import { debounce, isEqual } from "lodash";
 import { BarChart3, BrainCircuit, LoaderCircle, Plus, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -59,6 +60,23 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Unsaved-changes ask (round-33): a half-typed NEW project asks before
+   * closing (requirement covers the create form too). Pristine state is
+   * always the empty form - the create dialog re-seeds on every open. */
+  const [createAskOpen, setCreateAskOpen] = useState(false);
+  const createDirty = useMemo(
+    () => !isEqual({ name, description }, { name: "", description: "" }),
+    [name, description],
+  );
+
+  /** X, backdrop, ESC and Cancel funnel here - dirty drafts ask first. */
+  function attemptCreateClose() {
+    if (createDirty && !busy) {
+      setCreateAskOpen(true);
+      return;
+    }
+    setOpen(false);
+  }
 
   /* --- project search (lodash debounce: one input event, one delayed filter) */
   const [search, setSearch] = useState("");
@@ -75,15 +93,14 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
       )
     : projects;
 
-  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function performCreate(): Promise<boolean> {
     setBusy(true);
     setError(null);
     const result = await createProjectAction({ name: name.trim(), description: description.trim() });
     setBusy(false);
     if (!result.ok) {
       setError(explainApi(result, t, "home.createFail"));
-      return;
+      return false;
     }
     toast.success(t("home.projectCreated"));
     setOpen(false);
@@ -91,6 +108,12 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
     setDescription("");
     router.refresh();
     if (result.data) router.push(`/projects/${result.data.id}`);
+    return true;
+  }
+
+  function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void performCreate();
   }
 
   return (
@@ -312,7 +335,7 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={attemptCreateClose}>
         <DialogContent size="md">
           <form onSubmit={handleCreate}>
             <DialogHeader>
@@ -357,7 +380,7 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setOpen(false)}
+                onClick={attemptCreateClose}
                 disabled={busy}
               >
                 {t("home.cancel")}
@@ -368,6 +391,27 @@ export function ProjectsView({ projects, canCreate, role }: ProjectsViewProps) {
               </Button>
             </DialogFooter>
           </form>
+          {/* Unsaved-changes ask (round-33): half-typed new projects ask too */}
+          <ConfirmDialog
+            open={createAskOpen}
+            onOpenChange={setCreateAskOpen}
+            title={t("unsaved.title")}
+            description={t("unsaved.body")}
+            confirmLabel={t("unsaved.save")}
+            cancelLabel={t("unsaved.keepEditing")}
+            neutralLabel={t("unsaved.discard")}
+            confirmVariant="default"
+            busy={busy}
+            onConfirm={() => {
+              setCreateAskOpen(false);
+              void performCreate();
+            }}
+            onNeutral={() => {
+              setOpen(false);
+              setName("");
+              setDescription("");
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>
