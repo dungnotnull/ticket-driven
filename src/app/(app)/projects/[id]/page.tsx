@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
@@ -6,6 +7,7 @@ import { getProjectDetail, getProjectMetaForTitle } from "@/lib/services/project
 import { listTickets } from "@/lib/services/tickets";
 import { peekProjectRole } from "@/lib/rbac";
 import { BoardWorkspace } from "@/components/board/board-workspace";
+import { Skeleton, LoaderBar } from "@/components/ui/skeleton";
 
 /** Dynamic board title: project name for authorized viewers only -
  * non-members / guests get a generic title (no data leak). */
@@ -32,12 +34,12 @@ export async function generateMetadata({
   }
 }
 
-export default async function ProjectPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+/**
+ * Per-request board content (session + project + tickets). Behind Suspense so
+ * the build prerenders only the safe skeleton shell - a cookie-less build
+ * render must never bake notFound()/redirect() into the shared document.
+ */
+async function BoardContent({ id }: { id: string }) {
   const user = await getSessionUser();
   if (!user) notFound();
 
@@ -67,5 +69,33 @@ export default async function ProjectPage({
       myRole={myRole ?? "team"}
       myUserId={user.id}
     />
+  );
+}
+
+/** Prerendered (shared) skeleton for any board document. */
+function BoardFallback() {
+  return (
+    <div className="space-y-6">
+      <LoaderBar />
+      <Skeleton className="h-12 rounded-xl" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-72 rounded-2xl max-md:hidden" />
+      </div>
+    </div>
+  );
+}
+
+export default async function ProjectPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return (
+    <Suspense fallback={<BoardFallback />}>
+      <BoardContent id={id} />
+    </Suspense>
   );
 }

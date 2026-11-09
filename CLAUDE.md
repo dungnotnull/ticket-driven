@@ -9,7 +9,10 @@ without breaking it.
 1. **This is NOT the Next.js you know** - read bundled docs under
    `node_modules/next/dist/docs/` before inventing APIs. Established patterns:
    `proxy.ts` (edge, signature-only checks, **never writes cookies**),
-   `export const instant = false` on cookie-reading segments, RSC cannot
+   **cookie-reading pages/layouts stream behind `<Suspense>`** (prerender =
+   skeleton only; a build-time cookie-less render must never bake
+   `redirect()`/`notFound()` into the shared document - round-28e),
+   `instant = false` only opts out of static-shell validation, RSC cannot
    `cookies().set()` (only Server Actions / Route Handlers).
 2. **Mongoose model cache gotcha**: `models.X ?? model(...)` keeps the old
    schema on HMR - after editing `src/lib/models.ts` you MUST restart the dev

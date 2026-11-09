@@ -6,21 +6,29 @@ verified build; detailed forensics live in `IMPLEMENTATION-NOTES.md`
 (append-only rows 1-41 + round gates). Dates are the session's Asia/Saigon
 calendar dates. Status of every line: DONE + probe-verified.
 
-## 2026-11-09 - round 28 (production-login hardening)
+## 2026-11-09 - rounds 28-28e (production-login root cause + fix)
 
-- **Login no longer races the session cookie**: after a successful login
-  (or register), the auth form now performs a full-document navigation to
-  the next page (`window.location.assign`) instead of a client-router
-  push + refresh. The freshly set `kanban_session` cookie is therefore
-  guaranteed to be attached to the very first `/dashboard` request,
-  eliminating the edge-case where a client-side RSC flight could out-run
-  the browser's cookie jar and bounce the user back to `/login`.
-- Diagnosed against the live Vercel deployment (not guessed): requests-
-  level chain `login -> GET /dashboard` = 200 with the fresh cookie, and
-  12/13 real-browser runs land on the dashboard with the session cookie
-  present on every flight - the bounce was a client-side race class /
-  user-side stale cookie, now closed by the atomic navigation.
-- Gate: tsc 0 / eslint 0 -> e2e **23/23**; console-banner probe 6/6.
+- **Root cause (proven on production, not guessed)**: the protected (app)
+  routes were prerendered at BUILD time without a session cookie, baking
+  redirect('/login') (+ a meta-refresh) into the shared static document.
+  Vercel served that constant shell (x-vercel-cache: PRERENDER) with HTTP
+  200 for every document load - so a signed-in visitor opening
+  /dashboard (typed URL, F5, or any full navigation) got bounced to
+  /login, while client-router flights happened to hit the dynamic layer
+  and worked. Local dev has no production prerender layer, which is why
+  the issue only appeared after deploying.
+- **Fix (documented cacheComponents auth pattern)**: every session-gated
+  page/layout now streams its per-user content behind a Suspense
+  boundary with a skeleton fallback - the build prerenders only the safe
+  skeleton shell; session checks, redirects and notFound() fire per
+  request with the cookie. The build now emits all protected routes as
+  Partial Prerender (static skeleton + streamed dynamic content).
+- Login success still performs a full-document navigation (round 28) so
+  the fresh kanban_session cookie is attached to the first /dashboard
+  request; the proxy returns to its minimal signature-only JWT gate.
+- Gate: tsc 0 / eslint 0 -> e2e 23/23; production-sim (next start)
+  regression: login + three document loads of /dashboard stay signed in
+  with rendered project cards; signed-in root / streams to /dashboard.
 
 ## 2026-11-08 - round 27 (console easter egg "Dev by Hoang Dung")
 
